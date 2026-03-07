@@ -86,7 +86,7 @@ def set_commit_status(
     sha: str,
     state: str,
     description: str,
-    context: str = "PR Guardian",
+    context: str = "GitGuardian",
 ) -> None:
     """Set a commit status check (pass/fail) on a specific SHA.
 
