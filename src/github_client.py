@@ -79,3 +79,30 @@ def post_comment(repo_full_name: str, pr_number: int, body: str) -> None:
     repo = _gh().get_repo(repo_full_name)
     issue = repo.get_issue(pr_number)
     issue.create_comment(body)
+
+
+def set_commit_status(
+    repo_full_name: str,
+    sha: str,
+    state: str,
+    description: str,
+    context: str = "PR Guardian",
+) -> None:
+    """Set a commit status check (pass/fail) on a specific SHA.
+
+    Args:
+        state: one of "pending", "success", "failure", "error"
+    """
+    repo = _gh().get_repo(repo_full_name)
+    repo.get_commit(sha).create_status(
+        state=state,
+        description=description[:140],  # GitHub limits to 140 chars
+        context=context,
+    )
+    logger.info("Set commit status %s on %s (%s)", state, sha[:8], context)
+
+
+def get_pr_head_sha(repo_full_name: str, pr_number: int) -> str:
+    repo = _gh().get_repo(repo_full_name)
+    pr = repo.get_pull(pr_number)
+    return pr.head.sha

@@ -11,8 +11,15 @@ class Settings(BaseSettings):
     port: int = 8000
     log_level: str = "info"
     security_label_id: str = ""
+    override_users: str = ""  # comma-separated GitHub usernames who can override checks
+    status_context: str = "PR Guardian"  # name shown on the GitHub commit status check
 
     model_config = {"env_file": ".env"}
+
+    def get_override_users(self) -> set[str]:
+        if not self.override_users:
+            return set()
+        return {u.strip().lower() for u in self.override_users.split(",") if u.strip()}
 
 
 settings = Settings()

@@ -20,9 +20,11 @@ from .context import (
 from .github_client import (
     get_changed_files,
     get_pr_diff,
+    get_pr_head_sha,
     merge_pr,
     post_comment,
     post_review,
+    set_commit_status,
 )
 from .linear_client import create_security_issue
 from .models import Severity
@@ -56,6 +58,9 @@ async def handle_webhook(
     if x_hub_signature_256 and not verify_signature(payload, x_hub_signature_256):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
+    if x_github_event == "issue_comment":
+        return await _handle_override_comment(await request.json())
+
     if x_github_event != "pull_request":
         return {"status": "ignored", "event": x_github_event}
 
@@ -74,6 +79,15 @@ async def handle_webhook(
     base_ref = pr["base"]["ref"]
 
     logger.info("Reviewing PR %s#%d: %s", repo_full_name, pr_number, pr_title)
+
+    # Set pending status while review is in progress
+    set_commit_status(
+        repo_full_name,
+        head_sha,
+        "pending",
+        "Review in progress...",
+        settings.status_context,
+    )
 
     # Fetch core PR data
     diff = get_pr_diff(repo_full_name, pr_number)
@@ -131,9 +145,18 @@ async def handle_webhook(
 
     review_body = "\n".join(body_parts)
 
-    # Post the review
-    if result.approved and not result.vulnerabilities:
+    # Post the review and set commit status
+    passed = result.approved and not result.vulnerabilities
+
+    if passed:
         post_review(repo_full_name, pr_number, review_body, "APPROVE")
+        set_commit_status(
+            repo_full_name,
+            head_sha,
+            "success",
+            "Review passed",
+            settings.status_context,
+        )
         logger.info("PR approved — attempting merge")
         merged = merge_pr(repo_full_name, pr_number)
         if not merged:
@@ -145,6 +168,15 @@ async def handle_webhook(
             )
     else:
         post_review(repo_full_name, pr_number, review_body, "REQUEST_CHANGES")
+        vuln_count = len(result.vulnerabilities)
+        desc = f"Review failed — {vuln_count} issue(s) found" if vuln_count else "Review failed — changes requested"
+        set_commit_status(
+            repo_full_name,
+            head_sha,
+            "failure",
+            desc,
+            settings.status_context,
+        )
 
     # Create Linear issues for high/critical vulnerabilities
     high_vulns = [
@@ -168,6 +200,60 @@ async def handle_webhook(
         )
 
     return {"status": "reviewed", "approved": result.approved}
+
+
+async def _handle_override_comment(data: dict) -> dict:
+    """Allow authorized users to override a failed check via `/guardian override`."""
+    action = data.get("action")
+    if action != "created":
+        return {"status": "ignored", "action": action}
+
+    comment_body = data.get("comment", {}).get("body", "").strip().lower()
+    if comment_body not in ("/guardian override", "/guardian approve"):
+        return {"status": "ignored", "reason": "not an override command"}
+
+    # Only process comments on PRs (issues with pull_request key)
+    issue = data.get("issue", {})
+    if "pull_request" not in issue:
+        return {"status": "ignored", "reason": "not a pull request"}
+
+    commenter = data.get("comment", {}).get("user", {}).get("login", "")
+    allowed = settings.get_override_users()
+
+    if commenter.lower() not in allowed:
+        repo_full_name = data["repository"]["full_name"]
+        pr_number = issue["number"]
+        post_comment(
+            repo_full_name,
+            pr_number,
+            f"@{commenter} You are not authorized to override PR Guardian checks.",
+        )
+        logger.warning(
+            "Unauthorized override attempt by %s on %s#%d",
+            commenter, repo_full_name, pr_number,
+        )
+        return {"status": "denied", "user": commenter}
+
+    repo_full_name = data["repository"]["full_name"]
+    pr_number = issue["number"]
+    head_sha = get_pr_head_sha(repo_full_name, pr_number)
+
+    set_commit_status(
+        repo_full_name,
+        head_sha,
+        "success",
+        f"Overridden by @{commenter}",
+        settings.status_context,
+    )
+    post_comment(
+        repo_full_name,
+        pr_number,
+        f"PR Guardian check overridden by @{commenter}.",
+    )
+    logger.info(
+        "Check overridden by %s on %s#%d", commenter, repo_full_name, pr_number
+    )
+    return {"status": "overridden", "user": commenter}
 
 
 @app.get("/health")
