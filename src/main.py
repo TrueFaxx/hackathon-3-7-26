@@ -89,6 +89,36 @@ async def handle_webhook(
         settings.status_context,
     )
 
+    try:
+        return await _run_review(
+            repo_full_name, pr_number, pr_title, pr_body, pr_author, head_sha, base_ref
+        )
+    except Exception:
+        logger.exception("Review failed for %s#%d", repo_full_name, pr_number)
+        set_commit_status(
+            repo_full_name,
+            head_sha,
+            "error",
+            "Review encountered an error",
+            settings.status_context,
+        )
+        post_comment(
+            repo_full_name,
+            pr_number,
+            "PR Guardian encountered an error during review. Please re-push or ask a maintainer to investigate.",
+        )
+        return {"status": "error"}
+
+
+async def _run_review(
+    repo_full_name: str,
+    pr_number: int,
+    pr_title: str,
+    pr_body: str,
+    pr_author: str,
+    head_sha: str,
+    base_ref: str,
+) -> dict:
     # Fetch core PR data
     diff = get_pr_diff(repo_full_name, pr_number)
     changed_files = get_changed_files(repo_full_name, pr_number)
