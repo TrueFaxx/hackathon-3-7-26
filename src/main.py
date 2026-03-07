@@ -4,8 +4,11 @@ import hmac
 import logging
 import secrets
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 import uvicorn
@@ -34,11 +37,14 @@ from .github_client import (
     set_commit_status,
 )
 from .database import (
+    add_user_repo,
     authenticate_user,
     create_user,
     generate_api_key,
+    get_user_repos,
     init_db,
     list_user_keys,
+    remove_user_repo,
     revoke_api_key,
     validate_api_key,
 )
@@ -78,6 +84,18 @@ async def require_api_key(api_key: str = Security(_api_key_header)):
     user = validate_api_key(api_key)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid API key")
+
+
+async def get_current_user(api_key: str = Security(_api_key_header)) -> dict:
+    """Returns the authenticated user dict, or a static-key placeholder."""
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing API key")
+    if settings.api_key and secrets.compare_digest(api_key, settings.api_key):
+        return {"user_id": 0, "username": "admin", "email": ""}
+    user = validate_api_key(api_key)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return user
 
 
 # ─── Auto-accept invitations on startup + periodic ────────────────────────────
@@ -377,12 +395,9 @@ class GenerateKeyRequest(BaseModel):
     name: str = "default"
 
 
-@app.post("/api/keys", dependencies=[Depends(require_api_key)])
-async def create_new_key(req: GenerateKeyRequest, api_key: str = Security(_api_key_header)):
+@app.post("/api/keys")
+async def create_new_key(req: GenerateKeyRequest, user: dict = Depends(get_current_user)):
     """Generate an additional API key for the authenticated user."""
-    user = validate_api_key(api_key)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid API key")
     new_key = generate_api_key(user["user_id"], name=req.name)
     return {
         "api_key": new_key,
@@ -391,12 +406,9 @@ async def create_new_key(req: GenerateKeyRequest, api_key: str = Security(_api_k
     }
 
 
-@app.get("/api/keys", dependencies=[Depends(require_api_key)])
-async def list_keys(api_key: str = Security(_api_key_header)):
+@app.get("/api/keys")
+async def list_keys(user: dict = Depends(get_current_user)):
     """List all API keys for the authenticated user (prefixes only)."""
-    user = validate_api_key(api_key)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid API key")
     keys = list_user_keys(user["user_id"])
     return {"keys": keys}
 
@@ -405,12 +417,9 @@ class RevokeKeyRequest(BaseModel):
     key_prefix: str
 
 
-@app.post("/api/keys/revoke", dependencies=[Depends(require_api_key)])
-async def revoke_key(req: RevokeKeyRequest, api_key: str = Security(_api_key_header)):
+@app.post("/api/keys/revoke")
+async def revoke_key(req: RevokeKeyRequest, user: dict = Depends(get_current_user)):
     """Revoke an API key by its prefix."""
-    user = validate_api_key(api_key)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid API key")
     revoked = revoke_api_key(user["user_id"], req.key_prefix)
     if not revoked:
         raise HTTPException(status_code=404, detail="Key not found or already revoked")
@@ -425,29 +434,52 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/api/repos", dependencies=[Depends(require_api_key)])
-async def api_repos():
-    """List monitored repos."""
-    repos = [
-        r.strip()
-        for r in settings.monitored_repos.split(",")
-        if r.strip()
-    ]
+@app.get("/api/repos")
+async def api_repos(user: dict = Depends(get_current_user)):
+    """List the authenticated user's repos."""
+    repos = get_user_repos(user["user_id"])
     return {"repos": repos}
 
 
-@app.get("/api/prs/{owner}/{repo}", dependencies=[Depends(require_api_key)])
-async def api_open_prs(owner: str, repo: str):
-    """List open PRs for a repo with their Guardian status."""
+class AddRepoRequest(BaseModel):
+    repo: str  # e.g. "owner/repo"
+
+
+@app.post("/api/repos")
+async def api_add_repo(req: AddRepoRequest, user: dict = Depends(get_current_user)):
+    """Add a repo to the authenticated user's account."""
+    if "/" not in req.repo:
+        raise HTTPException(status_code=400, detail="Repo must be in 'owner/repo' format")
+    added = add_user_repo(user["user_id"], req.repo)
+    if not added:
+        raise HTTPException(status_code=409, detail="Repo already added")
+    return {"message": f"Added {req.repo}", "repo": req.repo}
+
+
+@app.delete("/api/repos/{owner}/{repo}")
+async def api_remove_repo(owner: str, repo: str, user: dict = Depends(get_current_user)):
+    """Remove a repo from the authenticated user's account."""
+    removed = remove_user_repo(user["user_id"], f"{owner}/{repo}")
+    if not removed:
+        raise HTTPException(status_code=404, detail="Repo not found in your account")
+    return {"message": f"Removed {owner}/{repo}"}
+
+
+@app.get("/api/prs/{owner}/{repo}")
+async def api_open_prs(owner: str, repo: str, user: dict = Depends(get_current_user)):
+    """List open PRs for a repo (must be in user's account)."""
     repo_full = f"{owner}/{repo}"
+    user_repos = get_user_repos(user["user_id"])
+    if repo_full not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account. Add it first via POST /api/repos")
     prs = list_open_prs(repo_full)
     return {"repo": repo_full, "count": len(prs), "pull_requests": prs}
 
 
-@app.get("/api/prs", dependencies=[Depends(require_api_key)])
-async def api_all_open_prs():
-    """List open PRs across all monitored repos."""
-    repos = [r.strip() for r in settings.monitored_repos.split(",") if r.strip()]
+@app.get("/api/prs")
+async def api_all_open_prs(user: dict = Depends(get_current_user)):
+    """List open PRs across the authenticated user's repos."""
+    repos = get_user_repos(user["user_id"])
     all_prs = []
     for repo in repos:
         try:
@@ -460,8 +492,8 @@ async def api_all_open_prs():
     return {"count": len(all_prs), "pull_requests": all_prs}
 
 
-@app.get("/api/security/issues", dependencies=[Depends(require_api_key)])
-async def api_security_issues():
+@app.get("/api/security/issues")
+async def api_security_issues(user: dict = Depends(get_current_user)):
     """List open security issues from Linear."""
     issues = await get_security_issues()
     return {"count": len(issues), "issues": issues}
@@ -476,8 +508,8 @@ class ChatResponse(BaseModel):
     reply: str
 
 
-@app.post("/api/chat", response_model=ChatResponse, dependencies=[Depends(require_api_key)])
-async def api_chat(req: ChatRequest):
+@app.post("/api/chat", response_model=ChatResponse)
+async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     """Direct chat with Claude about security, code review, or project questions."""
     import anthropic
 
@@ -506,9 +538,13 @@ class ManualReviewRequest(BaseModel):
     pr_number: int
 
 
-@app.post("/api/review", dependencies=[Depends(require_api_key)])
-async def api_trigger_review(req: ManualReviewRequest):
-    """Manually trigger a review for a specific PR."""
+@app.post("/api/review")
+async def api_trigger_review(req: ManualReviewRequest, user: dict = Depends(get_current_user)):
+    """Manually trigger a review for a specific PR (must be in user's repos)."""
+    user_repos = get_user_repos(user["user_id"])
+    if req.repo not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+
     from .github_client import _gh
 
     repo = _gh().get_repo(req.repo)
@@ -529,6 +565,14 @@ async def api_trigger_review(req: ManualReviewRequest):
         logger.exception("Manual review failed for %s#%d", req.repo, req.pr_number)
         set_commit_status(req.repo, head_sha, "error", "Review encountered an error", settings.status_context)
         raise HTTPException(status_code=500, detail="Review failed")
+
+
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+
+
+@app.get("/")
+async def serve_frontend():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 def main():
