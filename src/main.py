@@ -35,7 +35,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="PR Guardian", version="1.0.0")
+app = FastAPI(title="GitGuardian", version="1.0.0")
 
 
 def verify_signature(payload: bytes, signature: str) -> bool:
@@ -120,7 +120,7 @@ async def handle_webhook(
     )
 
     # Build review comment
-    body_parts = [f"## PR Guardian Review\n\n{result.summary}"]
+    body_parts = [f"## GitGuardian Review\n\n{result.summary}"]
 
     if result.vulnerabilities:
         body_parts.append("\n### Security Vulnerabilities\n")
@@ -226,7 +226,7 @@ async def _handle_override_comment(data: dict) -> dict:
         post_comment(
             repo_full_name,
             pr_number,
-            f"@{commenter} You are not authorized to override PR Guardian checks.",
+            f"@{commenter} You are not authorized to override GitGuardian checks.",
         )
         logger.warning(
             "Unauthorized override attempt by %s on %s#%d",
@@ -248,7 +248,7 @@ async def _handle_override_comment(data: dict) -> dict:
     post_comment(
         repo_full_name,
         pr_number,
-        f"PR Guardian check overridden by @{commenter}.",
+        f"GitGuardian check overridden by @{commenter}.",
     )
     logger.info(
         "Check overridden by %s on %s#%d", commenter, repo_full_name, pr_number
