@@ -106,3 +106,44 @@ def get_pr_head_sha(repo_full_name: str, pr_number: int) -> str:
     repo = _gh().get_repo(repo_full_name)
     pr = repo.get_pull(pr_number)
     return pr.head.sha
+
+
+def accept_pending_invitations() -> list[str]:
+    """Accept all pending repository collaboration invitations."""
+    accepted = []
+    try:
+        user = _gh().get_user()
+        for invite in user.get_invitations():
+            invite.accept()
+            repo_name = invite.repository.full_name
+            logger.info("Accepted collaboration invite for %s", repo_name)
+            accepted.append(repo_name)
+    except Exception:
+        logger.exception("Failed to check/accept invitations")
+    return accepted
+
+
+def list_open_prs(repo_full_name: str) -> list[dict]:
+    repo = _gh().get_repo(repo_full_name)
+    prs = repo.get_pulls(state="open", sort="created", direction="desc")
+    results = []
+    for pr in prs:
+        statuses = repo.get_commit(pr.head.sha).get_statuses()
+        guardian_status = None
+        for s in statuses:
+            if s.context == "PR Guardian":
+                guardian_status = s.state
+                break
+        results.append({
+            "number": pr.number,
+            "title": pr.title,
+            "author": pr.user.login,
+            "created_at": pr.created_at.isoformat(),
+            "updated_at": pr.updated_at.isoformat(),
+            "head_sha": pr.head.sha,
+            "base_branch": pr.base.ref,
+            "head_branch": pr.head.ref,
+            "url": pr.html_url,
+            "guardian_status": guardian_status,
+        })
+    return results
