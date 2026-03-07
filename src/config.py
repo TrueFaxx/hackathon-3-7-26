@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     log_level: str = "info"
     security_label_id: str = ""
     override_users: str = ""  # comma-separated GitHub usernames who can override checks
-    status_context: str = "PR Guardian"  # name shown on the GitHub commit status check
+    status_context: str = "GitGuardian"  # name shown on the GitHub commit status check
 
     model_config = {"env_file": ".env"}
 
