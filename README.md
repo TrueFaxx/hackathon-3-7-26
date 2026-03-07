@@ -7,7 +7,7 @@ Automated PR review bot powered by Claude. Reviews pull requests for code qualit
 ### Prerequisites
 
 - Python 3.11+
-- A GitHub account with repo access
+- A GitHub account with repo access (recommend a dedicated bot account)
 - An Anthropic API key
 - (Optional) A Linear account for security issue tracking
 
@@ -16,6 +16,8 @@ Automated PR review bot powered by Claude. Reviews pull requests for code qualit
 ```bash
 git clone https://github.com/TrueFaxx/hackathon-3-7-26.git
 cd hackathon-3-7-26
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -37,6 +39,8 @@ cp .env.example .env
 | `SECURITY_LABEL_ID` | No | Linear label ID to tag security issues |
 | `OVERRIDE_USERS` | No | Comma-separated GitHub usernames allowed to override checks (e.g. `alice,bob`) |
 | `STATUS_CONTEXT` | No | Name shown on the GitHub commit status check (default: `GitGuardian`) |
+| `MONITORED_REPOS` | No | Comma-separated repos for the dashboard API (e.g. `owner/repo1,owner/repo2`) |
+| `API_KEY` | No | Static API key for backwards compatibility (signup system generates keys automatically) |
 | `HOST` | No | Server bind address (default: `0.0.0.0`) |
 | `PORT` | No | Server port (default: `8000`) |
 | `LOG_LEVEL` | No | Logging level (default: `info`) |
@@ -67,6 +71,16 @@ To enforce the check as a merge gate:
 python -m src.main
 ```
 
+For a quick demo with ngrok:
+
+```bash
+# Terminal 1
+python -m src.main
+
+# Terminal 2
+ngrok http 8000
+```
+
 ## How it works
 
 1. A PR is opened or updated → GitHub sends a webhook
@@ -86,3 +100,82 @@ Authorized users (configured via `OVERRIDE_USERS`) can bypass a failed check by 
 ```
 
 This sets the commit status to **success** so the PR can be merged. Unauthorized users who attempt this will be denied with a comment.
+
+## Auto-Accept Invitations
+
+The bot automatically accepts GitHub collaborator invitations on startup and checks for new ones every 60 seconds. Just add the bot account as a collaborator on any repo and it will join automatically.
+
+## API
+
+All `/api/*` endpoints require authentication via the `X-API-Key` header.
+
+### Authentication
+
+#### Sign up
+
+```bash
+curl -X POST https://your-url/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "alice", "email": "alice@example.com", "password": "securepass123"}'
+```
+
+Returns an API key (`gg_...`). **Save it — it's only shown once.**
+
+#### Log in (generate a new key)
+
+```bash
+curl -X POST https://your-url/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "alice", "password": "securepass123"}'
+```
+
+#### Key management
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/keys` | Generate an additional API key (`{"name": "my-key"}`) |
+| `GET` | `/api/keys` | List your keys (prefixes only) |
+| `POST` | `/api/keys/revoke` | Revoke a key (`{"key_prefix": "gg_abc123"}`) |
+
+### Dashboard Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/repos` | List monitored repos |
+| `GET` | `/api/prs` | All open PRs across monitored repos with GitGuardian status |
+| `GET` | `/api/prs/{owner}/{repo}` | Open PRs for a specific repo |
+| `GET` | `/api/security/issues` | Open security issues from Linear |
+
+### AI Chat
+
+```bash
+curl -X POST https://your-url/api/chat \
+  -H "X-API-Key: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "How do I prevent SQL injection in Python?"}'
+```
+
+### Manual Review Trigger
+
+```bash
+curl -X POST https://your-url/api/review \
+  -H "X-API-Key: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"repo": "owner/repo", "pr_number": 1}'
+```
+
+### Other Endpoints
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/health` | No | Health check |
+| `POST` | `/webhook` | Signature | GitHub webhook receiver |
+
+## Linear Integration
+
+When `LINEAR_API_KEY` and `LINEAR_TEAM_ID` are configured:
+
+- High and critical vulnerabilities found during PR review are automatically filed as Linear issues
+- Issues include the repo, PR, author, file, line number, and suggested fix
+- Use `SECURITY_LABEL_ID` to tag issues with a security label
+- The `/api/security/issues` endpoint lists all open security issues from Linear
