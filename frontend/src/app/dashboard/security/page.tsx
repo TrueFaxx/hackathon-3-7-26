@@ -1,14 +1,16 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { getSecurityIssues, SecurityIssue } from "@/lib/api";
 
-const summaryCards = [
+const mockSummaryCards = [
   { label: "Critical", count: 3, color: "text-gg-danger", bg: "bg-gg-danger-muted", border: "border-gg-danger/20" },
   { label: "High", count: 7, color: "text-gg-warning", bg: "bg-gg-warning-muted", border: "border-gg-warning/20" },
   { label: "Medium", count: 12, color: "text-gg-info", bg: "bg-gg-info-muted", border: "border-gg-info/20" },
 ];
 
-const vulnerabilities = [
+const mockVulnerabilities = [
   {
     severity: "Critical",
     type: "SQL Injection",
@@ -103,7 +105,61 @@ function StatusPill({ status }: { status: "Open" | "Resolved" | "Dismissed" }) {
   return <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${cfg}`}>{status}</span>;
 }
 
+function priorityToSeverity(p: number): string {
+  if (p === 1) return "Critical";
+  if (p === 2) return "High";
+  return "Medium";
+}
+
 export default function SecurityPage() {
+  const [loading, setLoading] = useState(true);
+  const [apiFailed, setApiFailed] = useState(false);
+  const [vulnerabilities, setVulnerabilities] = useState(mockVulnerabilities);
+  const [summaryCards, setSummaryCards] = useState(mockSummaryCards);
+
+  useEffect(() => {
+    async function fetchSecurity() {
+      try {
+        const res = await getSecurityIssues();
+        const mapped = res.issues.map((issue: SecurityIssue) => {
+          const severity = priorityToSeverity(issue.priority);
+          return {
+            severity,
+            type: issue.title,
+            file: "",
+            pr: { id: 0, title: "" },
+            description: issue.description,
+            suggestedFix: "",
+            status: (issue.state === "open" ? "Open" : issue.state === "resolved" ? "Resolved" : "Dismissed") as "Open" | "Resolved" | "Dismissed",
+          };
+        });
+        setVulnerabilities(mapped);
+        const critical = res.issues.filter((i: SecurityIssue) => i.priority === 1).length;
+        const high = res.issues.filter((i: SecurityIssue) => i.priority === 2).length;
+        const medium = res.issues.filter((i: SecurityIssue) => i.priority >= 3).length;
+        setSummaryCards([
+          { label: "Critical", count: critical, color: "text-gg-danger", bg: "bg-gg-danger-muted", border: "border-gg-danger/20" },
+          { label: "High", count: high, color: "text-gg-warning", bg: "bg-gg-warning-muted", border: "border-gg-warning/20" },
+          { label: "Medium", count: medium, color: "text-gg-info", bg: "bg-gg-info-muted", border: "border-gg-info/20" },
+        ]);
+        setApiFailed(false);
+      } catch {
+        setApiFailed(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSecurity();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-full bg-gg-bg flex items-center justify-center">
+        <p className="text-gg-text-secondary">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-gg-bg">
       <div className="max-w-6xl mx-auto px-8 py-8">
@@ -113,6 +169,12 @@ export default function SecurityPage() {
         >
           Security Overview
         </h1>
+
+        {apiFailed && (
+          <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
+            Could not connect to backend — showing sample data
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
           {summaryCards.map((card) => (

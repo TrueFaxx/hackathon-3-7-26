@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { getRepos, getAllPRs, getSecurityIssues, PullRequest } from "@/lib/api";
 
 const tabs = [
   { id: "overview", label: "Overview", badge: null },
@@ -11,7 +12,7 @@ const tabs = [
   { id: "activity", label: "Activity", badge: null },
 ];
 
-const pinnedRepos = [
+const mockPinnedRepos = [
   {
     name: "acme/frontend",
     description: "Next.js web application with React 19 and Tailwind CSS",
@@ -62,7 +63,7 @@ const pinnedRepos = [
   },
 ];
 
-const recentPRs = [
+const mockRecentPRs = [
   {
     title: "Fix rate limiter race condition",
     repo: "acme/api-server",
@@ -223,11 +224,84 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [repoFilter, setRepoFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
+  const [loading, setLoading] = useState(true);
+  const [apiFailed, setApiFailed] = useState(false);
+  const [repos, setRepos] = useState<string[]>([]);
+  const [prs, setPrs] = useState<PullRequest[]>([]);
+  const [vulnCount, setVulnCount] = useState(0);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [repoRes, prRes, secRes] = await Promise.all([
+          getRepos(),
+          getAllPRs(),
+          getSecurityIssues(),
+        ]);
+        setRepos(repoRes.repos);
+        setPrs(prRes.pull_requests);
+        setVulnCount(secRes.count);
+        setApiFailed(false);
+      } catch {
+        setApiFailed(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  const pinnedRepos = apiFailed
+    ? mockPinnedRepos
+    : repos.map((r) => ({
+        name: r,
+        description: "",
+        language: "",
+        langColor: "#3178c6",
+        prs: 0,
+        vulns: 0,
+      }));
+
+  const recentPRs = apiFailed
+    ? mockRecentPRs
+    : prs.slice(0, 8).map((pr) => ({
+        title: pr.title,
+        repo: pr.repo || "",
+        description: `#${pr.number} by ${pr.user}`,
+        language: "",
+        langColor: "#3178c6",
+        time: new Date(pr.created_at).toLocaleDateString(),
+        vulns: 0,
+        files: 0,
+        sparkline: [8, 12, 6, 14, 10, 16, 8],
+      }));
+
+  const stats = apiFailed
+    ? [
+        { label: "PRs Reviewed Today", value: "12", trend: "+3", trendUp: true, color: "text-gg-text" },
+        { label: "Vulnerabilities Found", value: "3", trend: null, trendUp: false, color: "text-gg-danger" },
+        { label: "Auto-merged", value: "8", trend: null, trendUp: true, color: "text-gg-brand" },
+        { label: "Avg Review Time", value: "2.4m", trend: null, trendUp: true, color: "text-gg-text" },
+      ]
+    : [
+        { label: "PRs Reviewed Today", value: String(prs.length), trend: null, trendUp: true, color: "text-gg-text" },
+        { label: "Vulnerabilities Found", value: String(vulnCount), trend: null, trendUp: false, color: "text-gg-danger" },
+        { label: "Open PRs", value: String(prs.filter((p) => p.state === "open").length), trend: null, trendUp: true, color: "text-gg-brand" },
+        { label: "Repos", value: String(repos.length), trend: null, trendUp: true, color: "text-gg-text" },
+      ];
 
   const filteredPRs = recentPRs.filter((pr) =>
     pr.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     pr.repo.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-full bg-gg-bg flex items-center justify-center">
+        <p className="text-gg-text-secondary">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-gg-bg">
@@ -323,13 +397,13 @@ export default function DashboardPage() {
           {/* Left Column (70%) */}
           <div className="flex-1 min-w-0">
             {/* Stats Overview */}
+            {apiFailed && (
+              <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
+                Could not connect to backend — showing sample data
+              </div>
+            )}
             <div className="grid grid-cols-4 gap-4 mb-8">
-              {[
-                { label: "PRs Reviewed Today", value: "12", trend: "+3", trendUp: true, color: "text-gg-text" },
-                { label: "Vulnerabilities Found", value: "3", trend: null, trendUp: false, color: "text-gg-danger" },
-                { label: "Auto-merged", value: "8", trend: null, trendUp: true, color: "text-gg-brand" },
-                { label: "Avg Review Time", value: "2.4m", trend: null, trendUp: true, color: "text-gg-text" },
-              ].map((stat) => (
+              {stats.map((stat) => (
                 <div
                   key={stat.label}
                   className="bg-gg-surface border border-gg-border rounded-lg p-4 hover:border-gg-border-bright transition-colors"

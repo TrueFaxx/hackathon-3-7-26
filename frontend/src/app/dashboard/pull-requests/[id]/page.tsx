@@ -213,7 +213,7 @@ export default function PRDetailPage({ params }: { params: Promise<{ id: string 
               onClick={() => setActiveTab(tab.key)}
               className={`px-5 py-2 text-sm rounded-full transition-all duration-150 ${
                 activeTab === tab.key
-                  ? "bg-gg-btn-primary text-gg-inset font-medium"
+                  ? "bg-gg-btn-primary text-white font-medium"
                   : "bg-gg-btn text-gg-text-secondary border border-gg-border hover:bg-gg-btn-hover"
               }`}
             >

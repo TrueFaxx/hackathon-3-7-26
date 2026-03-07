@@ -168,7 +168,7 @@ export default function ActivityPage() {
               onClick={() => setActiveFilter(f)}
               className={`px-4 py-1.5 text-sm rounded-full transition-all duration-150 ${
                 activeFilter === f
-                  ? "bg-gg-btn-primary text-gg-inset font-medium"
+                  ? "bg-gg-btn-primary text-white font-medium"
                   : "bg-gg-btn text-gg-text-secondary border border-gg-border hover:bg-gg-btn-hover"
               }`}
             >

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { getRepos } from "@/lib/api";
 
-const repos = [
+const mockRepos = [
   {
     id: 1,
     name: "acme/backend-api",
@@ -51,9 +52,39 @@ const repos = [
 ];
 
 export default function RepositoriesPage() {
+  const [loading, setLoading] = useState(true);
+  const [apiFailed, setApiFailed] = useState(false);
+  const [repos, setReposData] = useState(mockRepos);
   const [repoStates, setRepoStates] = useState(
-    repos.map((r) => ({ id: r.id, status: r.status }))
+    mockRepos.map((r) => ({ id: r.id, status: r.status }))
   );
+
+  useEffect(() => {
+    async function fetchRepos() {
+      try {
+        const res = await getRepos();
+        const mapped = res.repos.map((r: string, i: number) => ({
+          id: i + 1,
+          name: r,
+          description: "",
+          language: "",
+          langColor: "#3178c6",
+          prsReviewed: 0,
+          vulnsFound: 0,
+          lastActivity: "-",
+          status: "Connected" as const,
+        }));
+        setReposData(mapped);
+        setRepoStates(mapped.map((r: { id: number; status: "Connected" | "Paused" }) => ({ id: r.id, status: r.status })));
+        setApiFailed(false);
+      } catch {
+        setApiFailed(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRepos();
+  }, []);
 
   function toggleStatus(id: number) {
     setRepoStates((prev) =>
@@ -63,9 +94,22 @@ export default function RepositoriesPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-full bg-gg-bg flex items-center justify-center">
+        <p className="text-gg-text-secondary">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-gg-bg">
       <div className="max-w-6xl mx-auto px-8 py-8">
+        {apiFailed && (
+          <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
+            Could not connect to backend — showing sample data
+          </div>
+        )}
         <div className="flex items-center justify-between mb-8">
           <h1
             className="text-[24px] text-gg-text"
@@ -73,7 +117,7 @@ export default function RepositoriesPage() {
           >
             Connected Repositories
           </h1>
-          <button className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-gg-inset bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150">
+          <button className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>

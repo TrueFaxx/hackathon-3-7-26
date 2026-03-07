@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { listApiKeys, createApiKey, revokeApiKey, ApiKeyInfo } from "@/lib/api";
 
 const settingsTabs = ["General", "Integrations", "Notifications", "Team"] as const;
 type SettingsTab = (typeof settingsTabs)[number];
@@ -29,12 +30,51 @@ export default function SettingsPage() {
   const [strictness, setStrictness] = useState("Balanced");
   const [webhookCopied, setWebhookCopied] = useState(false);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [apiKeys, setApiKeys] = useState<ApiKeyInfo[]>([]);
+  const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
+  const [keysLoading, setKeysLoading] = useState(false);
   const [slackNotifs, setSlackNotifs] = useState(true);
   const [emailNotifs, setEmailNotifs] = useState(false);
   const [inAppNotifs, setInAppNotifs] = useState(true);
 
   const webhookUrl = "https://api.gitguardian.dev/webhooks/gh/acme-org";
-  const apiKey = "gg_sk_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";
+  const apiKey = newKeyValue || "gg_sk_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";
+
+  useEffect(() => {
+    async function fetchKeys() {
+      setKeysLoading(true);
+      try {
+        const res = await listApiKeys();
+        setApiKeys(res.keys);
+      } catch {
+        // keep empty list on failure
+      } finally {
+        setKeysLoading(false);
+      }
+    }
+    fetchKeys();
+  }, []);
+
+  async function handleRegenerate() {
+    try {
+      const res = await createApiKey();
+      setNewKeyValue(res.api_key);
+      setApiKeyVisible(true);
+      const keysRes = await listApiKeys();
+      setApiKeys(keysRes.keys);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleRevoke(prefix: string) {
+    try {
+      await revokeApiKey(prefix);
+      setApiKeys((prev) => prev.filter((k) => k.prefix !== prefix));
+    } catch {
+      // ignore
+    }
+  }
 
   function copyWebhook() {
     navigator.clipboard.writeText(webhookUrl);
@@ -59,7 +99,7 @@ export default function SettingsPage() {
               onClick={() => setActiveTab(tab)}
               className={`px-5 py-2 text-sm rounded-full transition-all duration-150 ${
                 activeTab === tab
-                  ? "bg-gg-btn-primary text-gg-inset font-medium"
+                  ? "bg-gg-btn-primary text-white font-medium"
                   : "bg-gg-btn text-gg-text-secondary border border-gg-border hover:bg-gg-btn-hover"
               }`}
             >
@@ -131,11 +171,33 @@ export default function SettingsPage() {
                 <button className="px-4 py-2.5 text-sm font-medium bg-gg-btn border border-gg-btn-border rounded-lg text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150">
                   Show
                 </button>
-                <button className="px-4 py-2.5 text-sm font-medium bg-gg-btn border border-gg-btn-border rounded-lg text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150">
+                <button
+                  onClick={handleRegenerate}
+                  className="px-4 py-2.5 text-sm font-medium bg-gg-btn border border-gg-btn-border rounded-lg text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150"
+                >
                   Regenerate
                 </button>
               </div>
               <p className="text-xs text-gg-text-muted mt-2">Use this key to authenticate API requests.</p>
+              {apiKeys.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold text-gg-text">Active Keys</p>
+                  {apiKeys.map((k) => (
+                    <div key={k.prefix} className="flex items-center justify-between bg-gg-inset border border-gg-border-subtle rounded-lg px-4 py-2">
+                      <div className="text-xs text-gg-text-secondary font-mono">
+                        {k.prefix}... &middot; {k.name} &middot; {new Date(k.created_at).toLocaleDateString()}
+                      </div>
+                      <button
+                        onClick={() => handleRevoke(k.prefix)}
+                        className="text-xs text-gg-danger hover:underline"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {keysLoading && <p className="text-xs text-gg-text-secondary mt-2">Loading keys...</p>}
             </div>
 
             <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
@@ -255,7 +317,7 @@ export default function SettingsPage() {
                   placeholder="sk-ant-api03-..."
                   className="flex-1 bg-gg-inset border border-gg-border-subtle rounded-lg py-2.5 px-4 text-sm text-gg-text font-mono placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand transition-colors duration-150"
                 />
-                <button className="px-5 py-2.5 text-sm font-medium text-gg-inset bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150">
+                <button className="px-5 py-2.5 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150">
                   Save
                 </button>
               </div>
@@ -307,7 +369,7 @@ export default function SettingsPage() {
                 >
                   Team Members
                 </h2>
-                <button className="px-4 py-2 text-xs font-medium bg-gg-btn-primary text-gg-inset rounded-lg hover:bg-gg-btn-primary-hover transition-colors duration-150">
+                <button className="px-4 py-2 text-xs font-medium bg-gg-btn-primary text-white rounded-lg hover:bg-gg-btn-primary-hover transition-colors duration-150">
                   Invite Member
                 </button>
               </div>

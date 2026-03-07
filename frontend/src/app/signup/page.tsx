@@ -3,6 +3,7 @@
 import { useState, FormEvent, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signup, setApiKey, setStoredUsername } from "@/lib/api";
 
 function getPasswordStrength(pw: string): {
   label: string;
@@ -33,6 +34,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
 
@@ -42,8 +44,16 @@ export default function SignupPage() {
     e.preventDefault();
     if (!canSubmit) return;
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    router.push("/dashboard");
+    setError("");
+    try {
+      const res = await signup(username, email, password);
+      setApiKey(res.api_key);
+      setStoredUsername(res.username);
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Signup failed");
+      setIsLoading(false);
+    }
   };
 
   const inputClass =
@@ -98,6 +108,9 @@ export default function SignupPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3">
+            {error && (
+              <p className="text-gg-danger text-sm text-center">{error}</p>
+            )}
             <input
               type="text"
               autoComplete="username"
@@ -170,7 +183,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={isLoading || !canSubmit}
-              className="w-full flex items-center justify-center gap-2 bg-gg-btn-primary hover:bg-gg-btn-primary-hover text-gg-inset font-semibold text-sm rounded-lg h-[44px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 bg-gg-btn-primary hover:bg-gg-btn-primary-hover text-white font-semibold text-sm rounded-lg h-[44px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>

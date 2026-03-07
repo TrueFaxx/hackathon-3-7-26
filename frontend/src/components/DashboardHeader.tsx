@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { clearAuth } from "@/lib/api";
 
 export default function DashboardHeader() {
+  const router = useRouter();
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-gg-inset border-b border-gg-border flex items-center px-4 gap-4">
       <Link
@@ -113,12 +116,12 @@ export default function DashboardHeader() {
           JD
         </div>
 
-        <Link
-          href="/login"
+        <button
+          onClick={() => { clearAuth(); router.push("/login"); }}
           className="text-xs text-gg-text-muted hover:text-gg-text transition-colors"
         >
           Sign out
-        </Link>
+        </button>
       </div>
     </header>
   );

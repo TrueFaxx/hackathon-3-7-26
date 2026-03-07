@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { getAllPRs, PullRequest } from "@/lib/api";
 
 const tabs = ["All", "Open", "Merged", "Failed"] as const;
 type Tab = (typeof tabs)[number];
@@ -114,8 +115,44 @@ function statusToTab(status: string): Tab {
 export default function PullRequestsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [apiFailed, setApiFailed] = useState(false);
+  const [prList, setPrList] = useState<typeof mockPRs>(mockPRs);
 
-  const filtered = mockPRs.filter((pr) => {
+  useEffect(() => {
+    async function fetchPRs() {
+      try {
+        const res = await getAllPRs();
+        setPrList(
+          res.pull_requests.map((pr: PullRequest, i: number) => ({
+            id: pr.number,
+            title: pr.title,
+            repo: pr.repo || "",
+            status: (pr.guardian_status === "approved"
+              ? "approved"
+              : pr.guardian_status === "failed"
+                ? "failed"
+                : pr.state === "closed"
+                  ? "merged"
+                  : "reviewing") as "approved" | "reviewing" | "failed" | "merged",
+            author: pr.user.slice(0, 2).toUpperCase(),
+            authorName: pr.user,
+            time: new Date(pr.created_at).toLocaleDateString(),
+            additions: 0,
+            deletions: 0,
+          }))
+        );
+        setApiFailed(false);
+      } catch {
+        setApiFailed(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPRs();
+  }, []);
+
+  const filtered = prList.filter((pr) => {
     const matchesTab = activeTab === "All" || statusToTab(pr.status) === activeTab;
     const matchesSearch =
       !searchQuery ||
@@ -123,6 +160,14 @@ export default function PullRequestsPage() {
       pr.repo.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-full bg-gg-bg flex items-center justify-center">
+        <p className="text-gg-text-secondary">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-gg-bg">
@@ -135,7 +180,7 @@ export default function PullRequestsPage() {
             Pull Requests
           </h1>
           <span className="text-sm font-semibold bg-gg-brand-muted text-gg-brand px-2.5 py-0.5 rounded-full">
-            {mockPRs.length}
+            {prList.length}
           </span>
         </div>
 
@@ -147,7 +192,7 @@ export default function PullRequestsPage() {
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-1.5 text-sm rounded-full transition-all duration-150 ${
                   activeTab === tab
-                    ? "bg-gg-btn-primary text-gg-inset font-medium"
+                    ? "bg-gg-btn-primary text-white font-medium"
                     : "bg-gg-btn text-gg-text-secondary border border-gg-border hover:bg-gg-btn-hover"
                 }`}
               >
@@ -177,6 +222,11 @@ export default function PullRequestsPage() {
           </div>
         </div>
 
+        {apiFailed && (
+          <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
+            Could not connect to backend — showing sample data
+          </div>
+        )}
         <div className="space-y-3">
           {filtered.length === 0 && (
             <div className="bg-gg-surface border border-gg-border rounded-lg px-6 py-16 text-center text-gg-text-muted text-sm">
