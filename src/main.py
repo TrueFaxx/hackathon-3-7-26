@@ -33,6 +33,15 @@ from .github_client import (
     post_review,
     set_commit_status,
 )
+from .database import (
+    authenticate_user,
+    create_user,
+    generate_api_key,
+    init_db,
+    list_user_keys,
+    revoke_api_key,
+    validate_api_key,
+)
 from .linear_client import create_security_issue, get_security_issues
 from .models import Severity
 
@@ -43,6 +52,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GitGuardian", version="1.0.0")
+
+init_db()
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,10 +69,15 @@ _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 async def require_api_key(api_key: str = Security(_api_key_header)):
-    if not settings.api_key:
-        raise HTTPException(status_code=500, detail="API key not configured on server")
-    if not api_key or not secrets.compare_digest(api_key, settings.api_key):
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing API key. Pass X-API-Key header.")
+    # Check static key from .env (backwards compatible)
+    if settings.api_key and secrets.compare_digest(api_key, settings.api_key):
+        return
+    # Check database keys
+    user = validate_api_key(api_key)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 # ─── Auto-accept invitations on startup + periodic ────────────────────────────
@@ -301,6 +317,104 @@ async def _handle_override_comment(data: dict) -> dict:
         "Check overridden by %s on %s#%d", commenter, repo_full_name, pr_number
     )
     return {"status": "overridden", "user": commenter}
+
+
+# ─── Auth Endpoints (no API key required) ─────────────────────────────────────
+
+
+class SignupRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
+@app.post("/auth/signup")
+async def signup(req: SignupRequest):
+    """Create a new account and return an API key."""
+    if len(req.username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if "@" not in req.email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+
+    user_id = create_user(req.username, req.email, req.password)
+    if user_id is None:
+        raise HTTPException(status_code=409, detail="Username or email already exists")
+
+    api_key = generate_api_key(user_id, name="default")
+    logger.info("New user signed up: %s", req.username)
+    return {
+        "message": "Account created successfully",
+        "username": req.username,
+        "api_key": api_key,
+        "note": "Save this API key — it won't be shown again. Pass it as X-API-Key header.",
+    }
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/auth/login")
+async def login(req: LoginRequest):
+    """Login and generate a new API key."""
+    user_id = authenticate_user(req.username, req.password)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    api_key = generate_api_key(user_id, name=f"login-{secrets.token_hex(4)}")
+    return {
+        "message": "Login successful",
+        "username": req.username,
+        "api_key": api_key,
+        "note": "Save this API key — it won't be shown again.",
+    }
+
+
+class GenerateKeyRequest(BaseModel):
+    name: str = "default"
+
+
+@app.post("/api/keys", dependencies=[Depends(require_api_key)])
+async def create_new_key(req: GenerateKeyRequest, api_key: str = Security(_api_key_header)):
+    """Generate an additional API key for the authenticated user."""
+    user = validate_api_key(api_key)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    new_key = generate_api_key(user["user_id"], name=req.name)
+    return {
+        "api_key": new_key,
+        "name": req.name,
+        "note": "Save this API key — it won't be shown again.",
+    }
+
+
+@app.get("/api/keys", dependencies=[Depends(require_api_key)])
+async def list_keys(api_key: str = Security(_api_key_header)):
+    """List all API keys for the authenticated user (prefixes only)."""
+    user = validate_api_key(api_key)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    keys = list_user_keys(user["user_id"])
+    return {"keys": keys}
+
+
+class RevokeKeyRequest(BaseModel):
+    key_prefix: str
+
+
+@app.post("/api/keys/revoke", dependencies=[Depends(require_api_key)])
+async def revoke_key(req: RevokeKeyRequest, api_key: str = Security(_api_key_header)):
+    """Revoke an API key by its prefix."""
+    user = validate_api_key(api_key)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    revoked = revoke_api_key(user["user_id"], req.key_prefix)
+    if not revoked:
+        raise HTTPException(status_code=404, detail="Key not found or already revoked")
+    return {"message": "API key revoked"}
 
 
 # ─── Frontend API Endpoints ───────────────────────────────────────────────────
