@@ -1,4 +1,4 @@
-# PR Guardian
+# GitGuardian
 
 Automated PR review bot powered by Claude. Reviews pull requests for code quality, security vulnerabilities, test coverage, and contradictions. Posts GitHub reviews, sets commit status checks (pass/fail), and creates Linear issues for critical findings.
 
@@ -36,7 +36,7 @@ cp .env.example .env
 | `LINEAR_TEAM_ID` | No | Linear team ID to file issues under |
 | `SECURITY_LABEL_ID` | No | Linear label ID to tag security issues |
 | `OVERRIDE_USERS` | No | Comma-separated GitHub usernames allowed to override checks (e.g. `alice,bob`) |
-| `STATUS_CONTEXT` | No | Name shown on the GitHub commit status check (default: `PR Guardian`) |
+| `STATUS_CONTEXT` | No | Name shown on the GitHub commit status check (default: `GitGuardian`) |
 | `HOST` | No | Server bind address (default: `0.0.0.0`) |
 | `PORT` | No | Server port (default: `8000`) |
 | `LOG_LEVEL` | No | Logging level (default: `info`) |
@@ -59,7 +59,7 @@ To enforce the check as a merge gate:
 1. Go to **Settings > Branches > Branch protection rules**
 2. Add a rule for your main branch
 3. Enable **Require status checks to pass before merging**
-4. Search for and add **PR Guardian** (or your custom `STATUS_CONTEXT`)
+4. Search for and add **GitGuardian** (or your custom `STATUS_CONTEXT`)
 
 ### 5. Run the server
 
@@ -70,7 +70,7 @@ python -m src.main
 ## How it works
 
 1. A PR is opened or updated → GitHub sends a webhook
-2. PR Guardian sets a **pending** commit status on the head SHA
+2. GitGuardian sets a **pending** commit status on the head SHA
 3. It gathers full context: diff, file contents, imports, tests, configs, commit history, and prior comments
 4. Claude reviews everything and returns structured findings
 5. The bot posts a GitHub review (approve or request changes) and sets the commit status to **success** or **failure**
