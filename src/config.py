@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     security_label_id: str = ""
     override_users: str = ""  # comma-separated GitHub usernames who can override checks
     status_context: str = "GitGuardian"  # name shown on the GitHub commit status check
+    monitored_repos: str = ""  # comma-separated repos to monitor (e.g. "owner/repo1,owner/repo2")
+    api_key: str = ""  # API key required for /api/* endpoints
 
     model_config = {"env_file": ".env"}
 

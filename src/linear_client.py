@@ -32,6 +32,10 @@ async def create_security_issue(
     Returns:
         The Linear issue identifier (e.g. "ENG-123") or None on failure.
     """
+    if not settings.linear_api_key or not settings.linear_team_id:
+        logger.warning("Linear not configured — skipping issue creation for: %s", title)
+        return None
+
     variables: dict = {
         "teamId": settings.linear_team_id,
         "title": title,
@@ -75,6 +79,62 @@ async def create_security_issue(
 
     logger.error("Failed to create Linear issue: %s", data)
     return None
+
+
+async def get_security_issues() -> list[dict]:
+    """Fetch open security issues from Linear."""
+    if not settings.linear_api_key or not settings.linear_team_id:
+        return []
+
+    filter_input: dict = {
+        "team": {"id": {"eq": settings.linear_team_id}},
+        "state": {"type": {"nin": ["completed", "canceled"]}},
+    }
+    if settings.security_label_id:
+        filter_input["labels"] = {"id": {"eq": settings.security_label_id}}
+
+    query = """
+    query($filter: IssueFilter) {
+        issues(filter: $filter, orderBy: updatedAt, first: 50) {
+            nodes {
+                identifier
+                title
+                description
+                priority
+                url
+                state { name }
+                assignee { name email }
+                createdAt
+            }
+        }
+    }
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                LINEAR_API_URL,
+                headers=_headers(),
+                json={"query": query, "variables": {"filter": filter_input}},
+            )
+            data = resp.json()
+
+        nodes = data.get("data", {}).get("issues", {}).get("nodes", [])
+        return [
+            {
+                "identifier": n["identifier"],
+                "title": n["title"],
+                "description": n.get("description", ""),
+                "priority": n.get("priority"),
+                "url": n["url"],
+                "state": n.get("state", {}).get("name", ""),
+                "assignee": n.get("assignee", {}).get("name") if n.get("assignee") else None,
+                "created_at": n.get("createdAt", ""),
+            }
+            for n in nodes
+        ]
+    except Exception:
+        logger.exception("Failed to fetch Linear issues")
+        return []
 
 
 async def _find_user_by_email(email: str) -> str | None:
