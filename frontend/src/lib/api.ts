@@ -95,14 +95,13 @@ export async function getRepos() {
 export interface PullRequest {
   number: number;
   title: string;
-  state: string;
-  user: string;
+  author: string;
   created_at: string;
   updated_at: string;
-  html_url: string;
+  url: string;
   head_sha: string;
-  base_ref: string;
-  head_ref: string;
+  base_branch: string;
+  head_branch: string;
   guardian_status: string | null;
   repo?: string;
 }
@@ -174,6 +173,21 @@ export async function revokeApiKey(keyPrefix: string) {
   return request<{ message: string }>("/api/keys/revoke", {
     method: "POST",
     body: JSON.stringify({ key_prefix: keyPrefix }),
+  });
+}
+
+// ─── Repo Management ────────────────────────────────────────────────────────
+
+export async function addRepo(repo: string) {
+  return request<{ message: string; repo: string }>("/api/repos", {
+    method: "POST",
+    body: JSON.stringify({ repo }),
+  });
+}
+
+export async function removeRepo(owner: string, repo: string) {
+  return request<{ message: string }>(`/api/repos/${owner}/${repo}`, {
+    method: "DELETE",
   });
 }
 

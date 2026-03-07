@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getRepos } from "@/lib/api";
+import { getRepos, addRepo, removeRepo } from "@/lib/api";
 
 const mockRepos = [
   {
@@ -58,33 +58,63 @@ export default function RepositoriesPage() {
   const [repoStates, setRepoStates] = useState(
     mockRepos.map((r) => ({ id: r.id, status: r.status }))
   );
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newRepoName, setNewRepoName] = useState("");
+  const [addError, setAddError] = useState("");
+
+  async function fetchRepos() {
+    try {
+      const res = await getRepos();
+      const mapped = res.repos.map((r: string, i: number) => ({
+        id: i + 1,
+        name: r,
+        description: "",
+        language: "",
+        langColor: "#3178c6",
+        prsReviewed: 0,
+        vulnsFound: 0,
+        lastActivity: "-",
+        status: "Connected" as const,
+      }));
+      setReposData(mapped);
+      setRepoStates(mapped.map((r: { id: number; status: "Connected" | "Paused" }) => ({ id: r.id, status: r.status })));
+      setApiFailed(false);
+    } catch {
+      setApiFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchRepos() {
-      try {
-        const res = await getRepos();
-        const mapped = res.repos.map((r: string, i: number) => ({
-          id: i + 1,
-          name: r,
-          description: "",
-          language: "",
-          langColor: "#3178c6",
-          prsReviewed: 0,
-          vulnsFound: 0,
-          lastActivity: "-",
-          status: "Connected" as const,
-        }));
-        setReposData(mapped);
-        setRepoStates(mapped.map((r: { id: number; status: "Connected" | "Paused" }) => ({ id: r.id, status: r.status })));
-        setApiFailed(false);
-      } catch {
-        setApiFailed(true);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchRepos();
   }, []);
+
+  async function handleAddRepo() {
+    if (!newRepoName.includes("/")) {
+      setAddError("Format: owner/repo");
+      return;
+    }
+    try {
+      await addRepo(newRepoName);
+      setShowAddModal(false);
+      setNewRepoName("");
+      setAddError("");
+      fetchRepos();
+    } catch (err: unknown) {
+      setAddError(err instanceof Error ? err.message : "Failed to add repo");
+    }
+  }
+
+  async function handleDisconnect(repoName: string) {
+    const [owner, repo] = repoName.split("/");
+    try {
+      await removeRepo(owner, repo);
+      fetchRepos();
+    } catch {
+      // ignore
+    }
+  }
 
   function toggleStatus(id: number) {
     setRepoStates((prev) =>
@@ -117,7 +147,10 @@ export default function RepositoriesPage() {
           >
             Connected Repositories
           </h1>
-          <button className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
@@ -185,7 +218,10 @@ export default function RepositoriesPage() {
                   <button className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150">
                     Settings
                   </button>
-                  <button className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-danger hover:bg-gg-danger-muted transition-colors duration-150">
+                  <button
+                    onClick={() => handleDisconnect(repo.name)}
+                    className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-danger hover:bg-gg-danger-muted transition-colors duration-150"
+                  >
                     Disconnect
                   </button>
                 </div>
@@ -193,6 +229,38 @@ export default function RepositoriesPage() {
             );
           })}
         </div>
+
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-gg-surface border border-gg-border rounded-xl p-6 w-full max-w-md">
+              <h2 className="text-lg font-semibold text-gg-text mb-4">Connect Repository</h2>
+              {addError && (
+                <p className="text-gg-danger text-sm mb-3">{addError}</p>
+              )}
+              <input
+                type="text"
+                value={newRepoName}
+                onChange={(e) => setNewRepoName(e.target.value)}
+                placeholder="owner/repo"
+                className="w-full bg-gg-surface border border-gg-border rounded-lg px-3.5 h-[44px] text-sm text-gg-text placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand/30 transition-colors mb-4"
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => { setShowAddModal(false); setAddError(""); setNewRepoName(""); }}
+                  className="px-4 py-2 text-sm text-gg-text-secondary bg-gg-btn border border-gg-btn-border rounded-lg hover:bg-gg-btn-hover transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddRepo}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors"
+                >
+                  Connect
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

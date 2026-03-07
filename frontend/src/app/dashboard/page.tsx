@@ -267,7 +267,7 @@ export default function DashboardPage() {
     : prs.slice(0, 8).map((pr) => ({
         title: pr.title,
         repo: pr.repo || "",
-        description: `#${pr.number} by ${pr.user}`,
+        description: `#${pr.number} by ${pr.author}`,
         language: "",
         langColor: "#3178c6",
         time: new Date(pr.created_at).toLocaleDateString(),
@@ -286,7 +286,7 @@ export default function DashboardPage() {
     : [
         { label: "PRs Reviewed Today", value: String(prs.length), trend: null, trendUp: true, color: "text-gg-text" },
         { label: "Vulnerabilities Found", value: String(vulnCount), trend: null, trendUp: false, color: "text-gg-danger" },
-        { label: "Open PRs", value: String(prs.filter((p) => p.state === "open").length), trend: null, trendUp: true, color: "text-gg-brand" },
+        { label: "Open PRs", value: String(prs.length), trend: null, trendUp: true, color: "text-gg-brand" },
         { label: "Repos", value: String(repos.length), trend: null, trendUp: true, color: "text-gg-text" },
       ];
 

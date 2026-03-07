@@ -131,7 +131,7 @@ def list_open_prs(repo_full_name: str) -> list[dict]:
         statuses = repo.get_commit(pr.head.sha).get_statuses()
         guardian_status = None
         for s in statuses:
-            if s.context == "PR Guardian":
+            if s.context == settings.status_context:
                 guardian_status = s.state
                 break
         results.append({

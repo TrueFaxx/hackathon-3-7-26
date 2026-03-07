@@ -128,15 +128,15 @@ export default function PullRequestsPage() {
             id: pr.number,
             title: pr.title,
             repo: pr.repo || "",
-            status: (pr.guardian_status === "approved"
+            status: (pr.guardian_status === "success"
               ? "approved"
-              : pr.guardian_status === "failed"
+              : pr.guardian_status === "failure"
                 ? "failed"
-                : pr.state === "closed"
-                  ? "merged"
+                : pr.guardian_status === "pending"
+                  ? "reviewing"
                   : "reviewing") as "approved" | "reviewing" | "failed" | "merged",
-            author: pr.user.slice(0, 2).toUpperCase(),
-            authorName: pr.user,
+            author: pr.author.slice(0, 2).toUpperCase(),
+            authorName: pr.author,
             time: new Date(pr.created_at).toLocaleDateString(),
             additions: 0,
             deletions: 0,
