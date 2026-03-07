@@ -28,6 +28,13 @@ def init_db():
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS user_repos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            repo_full_name TEXT NOT NULL,
+            added_at TEXT NOT NULL,
+            UNIQUE(user_id, repo_full_name)
+        );
         CREATE TABLE IF NOT EXISTS api_keys (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL REFERENCES users(id),
@@ -135,3 +142,45 @@ def revoke_api_key(user_id: int, key_prefix: str) -> bool:
     conn.commit()
     conn.close()
     return cursor.rowcount > 0
+
+
+# ─── User Repos ──────────────────────────────────────────────────────────────
+
+
+def add_user_repo(user_id: int, repo_full_name: str) -> bool:
+    """Add a repo to a user's account. Returns False if already added."""
+    conn = _connect()
+    try:
+        conn.execute(
+            "INSERT INTO user_repos (user_id, repo_full_name, added_at) VALUES (?, ?, ?)",
+            (user_id, repo_full_name, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def remove_user_repo(user_id: int, repo_full_name: str) -> bool:
+    """Remove a repo from a user's account."""
+    conn = _connect()
+    cursor = conn.execute(
+        "DELETE FROM user_repos WHERE user_id = ? AND repo_full_name = ?",
+        (user_id, repo_full_name),
+    )
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+
+def get_user_repos(user_id: int) -> list[str]:
+    """Get all repos for a user."""
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT repo_full_name FROM user_repos WHERE user_id = ? ORDER BY added_at",
+        (user_id,),
+    ).fetchall()
+    conn.close()
+    return [r["repo_full_name"] for r in rows]
