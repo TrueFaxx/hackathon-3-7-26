@@ -25,32 +25,12 @@ function timeAgo(iso: string): string {
 }
 
 function guardianLabel(status: string | null): { text: string; color: string } {
-  if (status === "success") return { text: "Approved", color: "text-gg-brand" };
+  if (status === "success") return { text: "Approved", color: "text-gg-success" };
   if (status === "failure") return { text: "Failed", color: "text-gg-danger" };
   if (status === "pending") return { text: "Reviewing", color: "text-gg-warning" };
   return { text: "Pending", color: "text-gg-text-muted" };
 }
 
-function ShieldIcon() {
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="shrink-0">
-      <path
-        d="M24 4L8 12v10c0 11 6.8 18.4 16 22 9.2-3.6 16-11 16-22V12L24 4z"
-        fill="rgba(16,185,129,0.15)"
-        stroke="#10b981"
-        strokeWidth="2"
-      />
-      <path
-        d="M20 24l4 4 6-8"
-        stroke="#10b981"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -87,7 +67,7 @@ export default function DashboardPage() {
 
   const stats = [
     { label: "Open PRs", value: String(prs.length), color: "text-gg-text" },
-    { label: "Approved", value: String(approvedCount), color: "text-gg-brand" },
+    { label: "Approved", value: String(approvedCount), color: "text-gg-success" },
     { label: "Failed Reviews", value: String(failedCount), color: "text-gg-danger" },
     { label: "Vulnerabilities", value: String(vulnCount), color: "text-gg-warning" },
   ];
@@ -106,11 +86,10 @@ export default function DashboardPage() {
         {/* Organization Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-start gap-4">
-            <ShieldIcon />
             <div>
-              <h1 className="text-2xl font-bold text-gg-text">GitGuardian</h1>
+              <h1 className="text-xl font-semibold text-gg-text">GitGuardian</h1>
               <p className="text-gg-text-secondary text-sm mt-0.5">
-                AI-powered code review for your organization
+                AI-powered code review
               </p>
               <div className="flex items-center gap-4 mt-2 text-xs text-gg-text-secondary">
                 <span className="flex items-center gap-1">
@@ -213,7 +192,7 @@ export default function DashboardPage() {
                         >
                           {repo}
                         </a>
-                        <span className="text-xs bg-gg-brand-muted text-gg-brand px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-gg-success-muted text-gg-success px-2 py-0.5 rounded-full">
                           Monitoring
                         </span>
                       </div>
@@ -298,7 +277,7 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gg-text-secondary">Approved</span>
-                  <span className="font-medium text-gg-brand">{approvedCount}</span>
+                  <span className="font-medium text-gg-success">{approvedCount}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gg-text-secondary">Failed</span>

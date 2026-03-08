@@ -95,7 +95,7 @@ export default function SecurityPage() {
           {summaryCards.map((card) => (
             <div
               key={card.label}
-              className={`${card.bg} border ${card.border} rounded-xl p-6 text-center hover:border-gg-border-bright transition-all duration-150`}
+              className={`${card.bg} border ${card.border} rounded-md p-6 text-center hover:border-gg-border-bright transition-all duration-150`}
             >
               <div className={`text-4xl font-bold ${card.color} mb-2`}>{card.count}</div>
               <div className={`text-sm font-semibold ${card.color}`}>{card.label}</div>
@@ -104,25 +104,7 @@ export default function SecurityPage() {
         </div>
 
         {issues.length === 0 && !error && (
-          <div className="bg-gg-surface border border-gg-border rounded-xl px-6 py-16 text-center">
-            <div className="flex justify-center mb-4">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                <path
-                  d="M24 4L8 12v10c0 11 6.8 18.4 16 22 9.2-3.6 16-11 16-22V12L24 4z"
-                  fill="rgba(16,185,129,0.15)"
-                  stroke="#10b981"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M20 24l4 4 6-8"
-                  stroke="#10b981"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </div>
+          <div className="bg-gg-surface border border-gg-border rounded-md px-6 py-16 text-center">
             <p className="text-gg-text text-sm font-medium mb-1">All clear!</p>
             <p className="text-gg-text-secondary text-sm">
               No security issues found. Issues are created automatically when GitGuardian detects high/critical vulnerabilities in PR reviews.
@@ -131,7 +113,7 @@ export default function SecurityPage() {
         )}
 
         {issues.length > 0 && (
-          <div className="bg-gg-surface rounded-xl border border-gg-border">
+          <div className="bg-gg-surface rounded-md border border-gg-border">
             <div className="px-6 py-5 border-b border-gg-border">
               <h2
                 className="text-lg text-gg-text"

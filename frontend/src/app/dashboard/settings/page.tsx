@@ -110,7 +110,7 @@ export default function SettingsPage() {
 
         {activeTab === "General" && (
           <div className="space-y-6 max-w-2xl">
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <label className="text-sm font-semibold text-gg-text block mb-3">Webhook URL</label>
               <div className="flex gap-2">
                 <input
@@ -142,7 +142,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <label className="text-sm font-semibold text-gg-text block mb-3">API Key</label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -200,7 +200,7 @@ export default function SettingsPage() {
               {keysLoading && <p className="text-xs text-gg-text-secondary mt-2">Loading keys...</p>}
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gg-text">Auto-merge Safe PRs</p>
@@ -212,7 +212,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <label className="text-sm font-semibold text-gg-text block mb-3">Review Strictness</label>
               <div className="relative max-w-xs">
                 <select
@@ -247,7 +247,7 @@ export default function SettingsPage() {
 
         {activeTab === "Integrations" && (
           <div className="space-y-5 max-w-2xl">
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 flex items-center justify-between hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 flex items-center justify-between hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gg-inset border border-gg-border-subtle flex items-center justify-center">
                   <svg className="w-6 h-6 text-gg-text" viewBox="0 0 24 24" fill="currentColor">
@@ -259,13 +259,13 @@ export default function SettingsPage() {
                   <p className="text-xs text-gg-text-muted">acme-org · 4 repositories connected</p>
                 </div>
               </div>
-              <span className="text-xs px-3 py-1 rounded-full bg-gg-brand-muted text-gg-brand font-medium flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-gg-brand" />
+              <span className="text-xs px-3 py-1 rounded-full bg-gg-success-muted text-gg-success font-medium flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-gg-success" />
                 Connected
               </span>
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 flex items-center justify-between hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 flex items-center justify-between hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gg-inset border border-gg-border-subtle flex items-center justify-center">
                   <svg className="w-6 h-6 text-gg-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -282,7 +282,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 flex items-center justify-between hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 flex items-center justify-between hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gg-inset border border-gg-border-subtle flex items-center justify-center">
                   <svg className="w-6 h-6 text-gg-text" viewBox="0 0 24 24" fill="currentColor">
@@ -299,7 +299,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-lg bg-gg-inset border border-gg-border-subtle flex items-center justify-center">
                   <svg className="w-6 h-6 text-gg-purple" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -327,7 +327,7 @@ export default function SettingsPage() {
 
         {activeTab === "Notifications" && (
           <div className="space-y-5 max-w-2xl">
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gg-text">Email Notifications</p>
@@ -337,7 +337,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gg-text">Slack Notifications</p>
@@ -347,7 +347,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gg-text">In-App Notifications</p>
@@ -361,7 +361,7 @@ export default function SettingsPage() {
 
         {activeTab === "Team" && (
           <div className="space-y-5 max-w-2xl">
-            <div className="bg-gg-surface rounded-xl border border-gg-border hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border hover:border-gg-border-bright transition-all duration-150">
               <div className="px-6 py-5 border-b border-gg-border flex items-center justify-between">
                 <h2
                   className="text-base text-gg-text"

@@ -224,7 +224,7 @@ export default function PRDetailPage({ params }: { params: Promise<{ id: string 
 
         {activeTab === "ai-review" && (
           <div className="space-y-6">
-            <div className="bg-gg-surface rounded-xl border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150">
+            <div className="bg-gg-surface rounded-md border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150">
               <div className="flex items-center gap-2.5 mb-3">
                 <div className="w-7 h-7 rounded-full bg-gg-brand-muted flex items-center justify-center">
                   <svg className="w-4 h-4 text-gg-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -253,7 +253,7 @@ export default function PRDetailPage({ params }: { params: Promise<{ id: string 
                 {vulnerabilities.map((vuln, i) => (
                   <div
                     key={i}
-                    className="bg-gg-surface rounded-xl border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150"
+                    className="bg-gg-surface rounded-md border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150"
                   >
                     <div className="flex items-center gap-2.5 mb-3">
                       <SeverityBadge severity={vuln.severity} />
@@ -287,7 +287,7 @@ export default function PRDetailPage({ params }: { params: Promise<{ id: string 
               {contradictions.map((c, i) => (
                 <div
                   key={i}
-                  className="bg-gg-surface rounded-xl border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150"
+                  className="bg-gg-surface rounded-md border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150"
                 >
                   <p className="text-sm font-semibold text-gg-text mb-2">{c.title}</p>
                   <p className="text-sm text-gg-text-secondary mb-3">{c.description}</p>
@@ -313,7 +313,7 @@ export default function PRDetailPage({ params }: { params: Promise<{ id: string 
                 {reviewComments.map((comment, i) => (
                   <div
                     key={i}
-                    className="bg-gg-surface rounded-xl border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150"
+                    className="bg-gg-surface rounded-md border border-gg-border p-5 hover:border-gg-border-bright transition-all duration-150"
                   >
                     <div className="flex items-center gap-2.5 mb-3">
                       <div
@@ -337,11 +337,11 @@ export default function PRDetailPage({ params }: { params: Promise<{ id: string 
         )}
 
         {activeTab === "files" && (
-          <div className="bg-gg-surface rounded-xl border border-gg-border overflow-hidden hover:border-gg-border-bright transition-all duration-150">
+          <div className="bg-gg-surface rounded-md border border-gg-border overflow-hidden hover:border-gg-border-bright transition-all duration-150">
             <div className="px-5 py-4 border-b border-gg-border flex items-center justify-between">
               <span className="text-sm text-gg-text-secondary font-mono">src/middleware/auth.ts</span>
               <div className="flex items-center gap-3 text-xs font-mono">
-                <span className="text-gg-brand">+24</span>
+                <span className="text-gg-success">+24</span>
                 <span className="text-gg-danger">-8</span>
               </div>
             </div>
@@ -351,7 +351,7 @@ export default function PRDetailPage({ params }: { params: Promise<{ id: string 
                   key={i}
                   className={`flex ${
                     line.type === "add"
-                      ? "bg-gg-brand-subtle text-gg-brand"
+                      ? "bg-gg-success-muted text-gg-success"
                       : line.type === "delete"
                         ? "bg-gg-danger-muted text-gg-danger"
                         : "text-gg-text-secondary"

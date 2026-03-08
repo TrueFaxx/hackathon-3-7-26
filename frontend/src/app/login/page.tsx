@@ -35,46 +35,18 @@ export default function LoginPage() {
 
       {/* Top-left wordmark */}
       <div className="relative z-10 px-8 pt-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-gg-text hover:text-gg-brand transition-colors">
-          <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
-            <path d="M20 2L4 11v18l16 9 16-9V11L20 2z" fill="none" stroke="#10b981" strokeWidth="2" />
-            <path d="M14 20l4 4 8-9" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-          <span className="tracking-wide" style={{ fontFamily: "Georgia, serif", fontSize: "16px" }}>
-            GitGuardian
-          </span>
+        <Link href="/" className="inline-flex items-center gap-2 text-gg-text hover:text-gg-text-secondary transition-colors">
+          <span className="font-semibold text-[15px]">GitGuardian</span>
         </Link>
       </div>
 
       {/* Centered content */}
       <div className="relative z-10 flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-[400px] animate-float-in">
-          {/* Shield logo */}
-          <div className="flex justify-center mb-6">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <path
-                d="M28 3L6 14.5v15C6 42.5 15.5 52 28 54c12.5-2 22-11.5 22-24.5v-15L28 3z"
-                fill="rgba(16,185,129,0.15)"
-                stroke="#10b981"
-                strokeWidth="2"
-              />
-              <path
-                d="M20 28l5.5 5.5L36 23"
-                stroke="#10b981"
-                strokeWidth="2.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-
           {/* Heading */}
-          <h1 className="text-center text-gg-text font-semibold mb-1" style={{ fontSize: "24px" }}>
+          <h1 className="text-center text-gg-text font-semibold text-xl mb-5">
             Sign in to GitGuardian
           </h1>
-          <p className="text-center text-gg-text-secondary text-sm mb-5">
-            Welcome back, guardian.
-          </p>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3">
