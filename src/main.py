@@ -248,7 +248,9 @@ async def handle_webhook(
     else:
         post_review(repo_full_name, pr_number, review_body, "REQUEST_CHANGES")
         vuln_count = len(result.vulnerabilities)
-        desc = f"Review failed — {vuln_count} issue(s) found" if vuln_count else "Review failed — changes requested"
+        contra_count = len(result.contradictions)
+        total_issues = vuln_count + contra_count
+        desc = f"Review failed — {total_issues} issue(s) found" if total_issues else "Review failed — changes requested"
         set_commit_status(
             repo_full_name,
             head_sha,
@@ -256,6 +258,17 @@ async def handle_webhook(
             desc,
             settings.status_context,
         )
+
+        # Offer auto-fix pipeline
+        if total_issues > 0:
+            post_comment(
+                repo_full_name,
+                pr_number,
+                f"**GitGuardian found {total_issues} issue(s).** "
+                f"The auto-fix pipeline can analyze these issues, create a fix plan, "
+                f"apply fixes, verify them, and update the PR.\n\n"
+                f"Reply `/guardian fix` to start the auto-fix pipeline, or fix manually."
+            )
 
     # Create Linear issues for high/critical vulnerabilities
     high_vulns = [
@@ -288,6 +301,19 @@ async def _handle_override_comment(data: dict) -> dict:
         return {"status": "ignored", "action": action}
 
     comment_body = data.get("comment", {}).get("body", "").strip().lower()
+
+    # Handle /guardian fix command — starts the auto-fix pipeline
+    if comment_body == "/guardian fix":
+        issue = data.get("issue", {})
+        if "pull_request" not in issue:
+            return {"status": "ignored", "reason": "not a pull request"}
+        repo_full_name = data["repository"]["full_name"]
+        pr_number = issue["number"]
+        post_comment(repo_full_name, pr_number, "**GitGuardian Auto-Fix pipeline starting...** Analyzing issues and creating fix plan.")
+        from .pipeline import run_pr_fix_pipeline
+        result = await run_pr_fix_pipeline(repo_full_name, pr_number)
+        return {"status": "pipeline_started", "run_id": result.get("run_id")}
+
     if comment_body not in ("/guardian override", "/guardian approve"):
         return {"status": "ignored", "reason": "not an override command"}
 
@@ -1011,6 +1037,134 @@ async def api_trigger_review(req: ManualReviewRequest, user: dict = Depends(get_
         logger.exception("Manual review failed for %s#%d", req.repo, req.pr_number)
         set_commit_status(req.repo, head_sha, "error", "Review encountered an error", settings.status_context)
         raise HTTPException(status_code=500, detail="Review failed")
+
+
+# ─── Auto-Fix Pipeline Endpoints ─────────────────────────────────────────────
+
+
+class PipelineRequest(BaseModel):
+    repo: str
+    pr_number: int
+
+
+class BranchMergeRequest(BaseModel):
+    repo: str
+    source_branch: str
+    target_branch: str = "main"
+
+
+class PipelineApprovalRequest(BaseModel):
+    run_id: int
+    repo: str
+    pr_number: int
+    action: str = "approve"  # approve | reject
+
+
+@app.post("/api/pipeline/pr-fix")
+async def api_start_pr_fix(req: PipelineRequest, user: dict = Depends(get_current_user)):
+    """Start the PR auto-fix pipeline: review → plan → (await approval) → fix → test → document → merge."""
+    user_repos = get_user_repos(user["user_id"])
+    if req.repo not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+
+    from .pipeline import run_pr_fix_pipeline
+
+    result = await run_pr_fix_pipeline(req.repo, req.pr_number, user_id=user["user_id"])
+    return result
+
+
+@app.post("/api/pipeline/pr-fix/approve")
+async def api_approve_pr_fix(req: PipelineApprovalRequest, user: dict = Depends(get_current_user)):
+    """Approve or reject the fix plan. If approved, applies fixes, tests, iterates, documents, and merges."""
+    user_repos = get_user_repos(user["user_id"])
+    if req.repo not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+
+    if req.action == "reject":
+        from .database import update_pipeline_run, get_pipeline_run
+        run = get_pipeline_run(req.run_id)
+        if run:
+            steps = run["steps"]
+            steps.append({"name": "fix", "status": "rejected", "detail": "User rejected the fix plan"})
+            update_pipeline_run(req.run_id, "rejected", steps)
+        return {"run_id": req.run_id, "status": "rejected"}
+
+    from .pipeline import continue_pr_fix_pipeline
+
+    result = await continue_pr_fix_pipeline(req.run_id, req.repo, req.pr_number)
+    return result
+
+
+@app.post("/api/pipeline/branch-merge")
+async def api_start_branch_merge(req: BranchMergeRequest, user: dict = Depends(get_current_user)):
+    """Start branch merge pipeline: check conflicts → resolve → review → document → (await approval) → merge."""
+    user_repos = get_user_repos(user["user_id"])
+    if req.repo not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+
+    from .pipeline import run_branch_merge_pipeline
+
+    result = await run_branch_merge_pipeline(
+        req.repo, req.source_branch, req.target_branch, user_id=user["user_id"]
+    )
+    return result
+
+
+@app.post("/api/pipeline/branch-merge/approve")
+async def api_approve_branch_merge(req: PipelineApprovalRequest, user: dict = Depends(get_current_user)):
+    """Approve or reject a branch merge."""
+    user_repos = get_user_repos(user["user_id"])
+    if req.repo not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+
+    if req.action == "reject":
+        from .database import update_pipeline_run, get_pipeline_run
+        run = get_pipeline_run(req.run_id)
+        if run:
+            steps = run["steps"]
+            steps.append({"name": "merge", "status": "rejected", "detail": "User rejected the merge"})
+            update_pipeline_run(req.run_id, "rejected", steps)
+        return {"run_id": req.run_id, "status": "rejected"}
+
+    from .pipeline import approve_merge
+
+    result = await approve_merge(req.run_id, req.repo, req.pr_number)
+    return result
+
+
+@app.get("/api/pipeline/runs")
+async def api_get_pipeline_runs(repo: str = "", user: dict = Depends(get_current_user)):
+    """Get pipeline run history."""
+    from .database import get_pipeline_runs
+
+    runs = get_pipeline_runs(repo=repo or None, user_id=user["user_id"])
+    return {"runs": runs}
+
+
+@app.get("/api/pipeline/runs/{run_id}")
+async def api_get_pipeline_run(run_id: int, user: dict = Depends(get_current_user)):
+    """Get a specific pipeline run with full step details."""
+    from .database import get_pipeline_run as db_get_run
+
+    run = db_get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline run not found")
+    return run
+
+
+@app.get("/api/repos/{owner}/{repo}/branches")
+async def api_get_branches(owner: str, repo: str, user: dict = Depends(get_current_user)):
+    """List branches for a repo."""
+    repo_full = f"{owner}/{repo}"
+    user_repos = get_user_repos(user["user_id"])
+    if repo_full not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+
+    from .github_client import _gh
+    repo_obj = _gh().get_repo(repo_full)
+    branches = [{"name": b.name, "sha": b.commit.sha} for b in repo_obj.get_branches()]
+    default_branch = repo_obj.default_branch
+    return {"branches": branches, "default_branch": default_branch}
 
 
 @app.get("/")

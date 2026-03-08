@@ -12,6 +12,7 @@ import {
   Activity,
   Shield,
   FlaskConical,
+  Workflow,
   ChevronRight,
 } from "lucide-react";
 import { getRepos } from "@/lib/api";
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/repositories", label: "Repositories", icon: FolderGit2 },
   { href: "/dashboard/pull-requests", label: "Pull Requests", icon: GitPullRequest },
+  { href: "/dashboard/pipeline", label: "Auto-Fix Pipeline", icon: Workflow },
   { href: "/dashboard/testing", label: "AI Testing", icon: FlaskConical },
   { href: "/dashboard/security", label: "Security", icon: ShieldAlert },
   { href: "/dashboard/activity", label: "Activity", icon: Activity },

@@ -252,6 +252,86 @@ export async function revokeApiKey(keyPrefix: string) {
   });
 }
 
+// ─── Pipeline ────────────────────────────────────────────────────────────────
+
+export interface PipelineStep {
+  name: string;
+  status: "running" | "done" | "failed" | "skipped" | "waiting" | "rejected" | "blocked";
+  detail: unknown;
+}
+
+export interface PipelineRun {
+  id: number;
+  repo: string;
+  pr_number: number | null;
+  branch: string | null;
+  pipeline_type: string;
+  status: string;
+  steps: PipelineStep[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PipelineResult {
+  run_id: number;
+  status: string;
+  steps: PipelineStep[];
+  needs_approval?: boolean;
+  plan?: Record<string, unknown>;
+  review?: Record<string, unknown>;
+  error?: string;
+  pr_number?: number;
+}
+
+export async function startPrFixPipeline(repo: string, prNumber: number) {
+  return request<PipelineResult>("/api/pipeline/pr-fix", {
+    method: "POST",
+    body: JSON.stringify({ repo, pr_number: prNumber }),
+  });
+}
+
+export async function approvePrFix(runId: number, repo: string, prNumber: number, action = "approve") {
+  return request<PipelineResult>("/api/pipeline/pr-fix/approve", {
+    method: "POST",
+    body: JSON.stringify({ run_id: runId, repo, pr_number: prNumber, action }),
+  });
+}
+
+export async function startBranchMerge(repo: string, sourceBranch: string, targetBranch = "main") {
+  return request<PipelineResult>("/api/pipeline/branch-merge", {
+    method: "POST",
+    body: JSON.stringify({ repo, source_branch: sourceBranch, target_branch: targetBranch }),
+  });
+}
+
+export async function approveBranchMerge(runId: number, repo: string, prNumber: number, action = "approve") {
+  return request<PipelineResult>("/api/pipeline/branch-merge/approve", {
+    method: "POST",
+    body: JSON.stringify({ run_id: runId, repo, pr_number: prNumber, action }),
+  });
+}
+
+export async function getPipelineRuns(repo = "") {
+  const params = repo ? `?repo=${encodeURIComponent(repo)}` : "";
+  return request<{ runs: PipelineRun[] }>(`/api/pipeline/runs${params}`);
+}
+
+export async function getPipelineRun(runId: number) {
+  return request<PipelineRun>(`/api/pipeline/runs/${runId}`);
+}
+
+export interface BranchInfo {
+  name: string;
+  sha: string;
+}
+
+export async function getBranches(repo: string) {
+  const [owner, name] = repo.split("/");
+  return request<{ branches: BranchInfo[]; default_branch: string }>(
+    `/api/repos/${owner}/${name}/branches`,
+  );
+}
+
 // Health
 export async function healthCheck() {
   return request<{ status: string }>("/health", {}, false);

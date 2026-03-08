@@ -45,6 +45,18 @@ def init_db():
             last_used_at TEXT,
             revoked INTEGER NOT NULL DEFAULT 0
         );
+        CREATE TABLE IF NOT EXISTS pipeline_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            repo TEXT NOT NULL,
+            pr_number INTEGER,
+            branch TEXT,
+            pipeline_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            steps TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            user_id INTEGER REFERENCES users(id)
+        );
     """)
     conn.commit()
     conn.close()
@@ -184,3 +196,76 @@ def get_user_repos(user_id: int) -> list[str]:
     ).fetchall()
     conn.close()
     return [r["repo_full_name"] for r in rows]
+
+
+# ─── Pipeline Runs ───────────────────────────────────────────────────────────
+
+def create_pipeline_run(
+    repo: str,
+    pipeline_type: str,
+    pr_number: int | None = None,
+    branch: str | None = None,
+    user_id: int | None = None,
+) -> int:
+    """Create a new pipeline run. Returns run ID."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _connect()
+    cursor = conn.execute(
+        "INSERT INTO pipeline_runs (repo, pr_number, branch, pipeline_type, status, steps, created_at, updated_at, user_id) "
+        "VALUES (?, ?, ?, ?, 'pending', '[]', ?, ?, ?)",
+        (repo, pr_number, branch, pipeline_type, now, now, user_id),
+    )
+    conn.commit()
+    run_id = cursor.lastrowid
+    conn.close()
+    return run_id
+
+
+def update_pipeline_run(run_id: int, status: str, steps: list[dict]) -> None:
+    """Update a pipeline run's status and steps."""
+    import json as _json
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _connect()
+    conn.execute(
+        "UPDATE pipeline_runs SET status = ?, steps = ?, updated_at = ? WHERE id = ?",
+        (status, _json.dumps(steps), now, run_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_pipeline_runs(repo: str | None = None, user_id: int | None = None, limit: int = 20) -> list[dict]:
+    """Get recent pipeline runs."""
+    import json as _json
+    conn = _connect()
+    query = "SELECT * FROM pipeline_runs WHERE 1=1"
+    params: list = []
+    if repo:
+        query += " AND repo = ?"
+        params.append(repo)
+    if user_id:
+        query += " AND user_id = ?"
+        params.append(user_id)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["steps"] = _json.loads(d["steps"]) if d["steps"] else []
+        results.append(d)
+    return results
+
+
+def get_pipeline_run(run_id: int) -> dict | None:
+    """Get a single pipeline run by ID."""
+    import json as _json
+    conn = _connect()
+    row = conn.execute("SELECT * FROM pipeline_runs WHERE id = ?", (run_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    d = dict(row)
+    d["steps"] = _json.loads(d["steps"]) if d["steps"] else []
+    return d
