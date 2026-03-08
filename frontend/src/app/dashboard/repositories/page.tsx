@@ -88,155 +88,149 @@ export default function RepositoriesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-full bg-gg-bg flex items-center justify-center">
-        <p className="text-gg-text-secondary">Loading...</p>
+      <div className="min-h-full flex items-center justify-center">
+        <p className="text-text-secondary text-sm">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-full bg-gg-bg">
-      <div className="max-w-6xl mx-auto px-8 py-8">
-        {apiFailed && (
-          <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
-            Could not connect to backend
-          </div>
-        )}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <h1
-              className="text-[24px] text-gg-text"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Connected Repositories
-            </h1>
-            <span className="text-sm font-semibold bg-gg-brand-muted text-gg-brand px-2.5 py-0.5 rounded-full">
-              {repos.length}
-            </span>
-          </div>
+    <div className="min-h-full">
+      {apiFailed && (
+        <div className="mb-6 px-4 py-3 bg-warning-light border border-warning/20 text-sm text-warning">
+          Could not connect to backend
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-text">Connected Repositories</h1>
+          <span className="text-xs font-bold bg-primary-light text-primary px-2.5 py-1">
+            {repos.length}
+          </span>
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-text-inverse bg-primary hover:bg-primary-hover transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Connect Repository
+        </button>
+      </div>
+
+      {repos.length === 0 && !apiFailed && (
+        <div className="bg-surface border border-border px-6 py-16 text-center">
+          <p className="text-text-secondary text-sm mb-3">No repositories connected yet.</p>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150"
+            className="text-sm font-bold text-primary hover:text-primary-hover"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Connect Repository
+            Connect your first repository
           </button>
         </div>
+      )}
 
-        {repos.length === 0 && !apiFailed && (
-          <div className="bg-gg-surface border border-gg-border rounded-lg px-6 py-16 text-center">
-            <p className="text-gg-text-secondary text-sm mb-3">No repositories connected yet.</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="text-sm text-gg-brand hover:underline font-medium"
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {repos.map((repo) => {
+          const color = langColors[repo.language] || "#8b8b8b";
+          return (
+            <div
+              key={repo.name}
+              className="bg-surface border border-border p-6 hover:border-border-strong transition-colors"
             >
-              Connect your first repository
-            </button>
-          </div>
-        )}
+              <div className="flex items-start justify-between mb-3">
+                <span className="text-sm font-bold text-text">{repo.name}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-success-light text-success uppercase">
+                  Connected
+                </span>
+              </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {repos.map((repo) => {
-            const color = langColors[repo.language] || "#8b8b8b";
-            return (
-              <div
-                key={repo.name}
-                className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <svg className="w-5 h-5 text-gg-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    <span className="text-sm font-semibold text-gg-text">{repo.name}</span>
-                  </div>
-                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-gg-success-muted text-gg-success">
-                    Connected
+              <p className="text-sm text-text-secondary mb-4 line-clamp-2">
+                {repo.description || "No description"}
+              </p>
+
+              {repo.language && (
+                <div className="flex items-center gap-4 mb-5 text-xs text-text-muted">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                    {repo.language}
                   </span>
+                  <span>{repo.stars} stars</span>
                 </div>
+              )}
 
-                <p className="text-sm text-gg-text-secondary mb-4 line-clamp-2">
-                  {repo.description || "No description"}
-                </p>
-
-                {repo.language && (
-                  <div className="flex items-center gap-3 mb-5 text-xs text-gg-text-muted">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                      {repo.language}
-                    </span>
-                    <span>{repo.stars} stars</span>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3 mb-5">
-                  <div className="bg-gg-inset rounded-lg p-3 text-center border border-gg-border-subtle">
-                    <div className="text-lg font-bold text-gg-text">{repo.open_prs}</div>
-                    <div className="text-[11px] text-gg-text-muted">Open PRs</div>
-                  </div>
-                  <div className="bg-gg-inset rounded-lg p-3 text-center border border-gg-border-subtle">
-                    <div className="text-xs font-medium text-gg-text-secondary mt-1">{timeAgo(repo.updated_at)}</div>
-                    <div className="text-[11px] text-gg-text-muted mt-0.5">Last Active</div>
-                  </div>
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <div className="bg-inset border border-border-subtle p-3 text-center">
+                  <div className="text-lg font-bold text-text">{repo.open_prs}</div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Open PRs</div>
                 </div>
-
-                <div className="flex gap-2 border-t border-gg-border pt-4">
-                  <a
-                    href={`https://github.com/${repo.name}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150 text-center"
-                  >
-                    View on GitHub
-                  </a>
-                  <button
-                    onClick={() => handleDisconnect(repo.name)}
-                    className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-danger hover:bg-gg-danger-muted transition-colors duration-150"
-                  >
-                    Disconnect
-                  </button>
+                <div className="bg-inset border border-border-subtle p-3 text-center">
+                  <div className="text-xs font-bold text-text-secondary mt-1">{timeAgo(repo.updated_at)}</div>
+                  <div className="text-[10px] text-text-muted mt-0.5 uppercase tracking-wider font-bold">Last Active</div>
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-gg-surface border border-gg-border rounded-md p-6 w-full max-w-md">
-              <h2 className="text-lg font-semibold text-gg-text mb-4">Connect Repository</h2>
-              {addError && (
-                <p className="text-gg-danger text-sm mb-3">{addError}</p>
-              )}
-              <input
-                type="text"
-                value={newRepoName}
-                onChange={(e) => setNewRepoName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddRepo()}
-                placeholder="owner/repo"
-                autoFocus
-                className="w-full bg-gg-surface border border-gg-border rounded-lg px-3.5 h-[44px] text-sm text-gg-text placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand/30 transition-colors mb-4"
-              />
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => { setShowAddModal(false); setAddError(""); setNewRepoName(""); }}
-                  className="px-4 py-2 text-sm text-gg-text-secondary bg-gg-btn border border-gg-btn-border rounded-lg hover:bg-gg-btn-hover transition-colors"
+              <div className="flex gap-2 border-t border-border pt-4">
+                <a
+                  href={`https://github.com/${repo.name}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-xs font-bold py-2.5 bg-surface border border-border text-text-secondary hover:text-text hover:border-border-strong transition-colors text-center"
                 >
-                  Cancel
-                </button>
+                  View on GitHub
+                </a>
                 <button
-                  onClick={handleAddRepo}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors"
+                  onClick={() => handleDisconnect(repo.name)}
+                  className="flex-1 text-xs font-bold py-2.5 bg-surface border border-border text-danger hover:bg-danger-light transition-colors"
                 >
-                  Connect
+                  Disconnect
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })}
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-surface border border-border p-8 w-full max-w-md">
+            <h2 className="text-lg font-bold text-text mb-6">Connect Repository</h2>
+            {addError && (
+              <div className="mb-4 px-4 py-3 bg-danger-light text-danger text-sm border border-danger/20">
+                {addError}
+              </div>
+            )}
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">
+              Repository
+            </label>
+            <input
+              type="text"
+              value={newRepoName}
+              onChange={(e) => setNewRepoName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddRepo()}
+              placeholder="owner/repo"
+              autoFocus
+              className="w-full bg-surface border border-border px-4 h-12 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors mb-6"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowAddModal(false); setAddError(""); setNewRepoName(""); }}
+                className="px-5 py-2.5 text-sm font-bold text-text-secondary bg-surface border border-border hover:border-border-strong transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddRepo}
+                className="px-5 py-2.5 text-sm font-bold text-text-inverse bg-primary hover:bg-primary-hover transition-colors"
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

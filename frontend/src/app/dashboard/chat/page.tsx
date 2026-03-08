@@ -55,22 +55,22 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-full bg-gg-bg flex flex-col">
-      <div className="max-w-3xl w-full mx-auto flex flex-col flex-1 px-4">
+    <div className="min-h-full flex flex-col">
+      <div className="max-w-3xl w-full mx-auto flex flex-col flex-1">
         {/* Header */}
-        <div className="py-6 border-b border-gg-border">
-          <h1 className="text-xl font-semibold text-gg-text">Chat with GitGuardian</h1>
-          <p className="text-sm text-gg-text-secondary mt-1">
+        <div className="py-6 border-b border-border">
+          <h1 className="text-2xl font-bold text-text">Chat</h1>
+          <p className="text-sm text-text-secondary mt-1">
             Ask about security best practices, code review, vulnerabilities, or your project.
           </p>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto py-6 space-y-4">
           {messages.length === 0 && !isLoading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="text-center">
-                <p className="text-gg-text-muted text-sm mb-4">No messages yet. Try asking something like:</p>
+                <p className="text-text-muted text-sm mb-6">No messages yet. Try asking something like:</p>
                 <div className="space-y-2">
                   {[
                     "What are common SQL injection patterns?",
@@ -83,7 +83,7 @@ export default function ChatPage() {
                         setInput(suggestion);
                         inputRef.current?.focus();
                       }}
-                      className="block w-full text-left text-sm text-gg-text-secondary bg-gg-surface border border-gg-border rounded-md px-4 py-2.5 hover:border-gg-border-bright hover:text-gg-text transition-colors"
+                      className="block w-full text-left text-sm text-text-secondary bg-surface border border-border px-4 py-3 hover:border-border-strong hover:text-text transition-colors"
                     >
                       {suggestion}
                     </button>
@@ -96,15 +96,15 @@ export default function ChatPage() {
           {messages.map((msg, i) => (
             <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
               {msg.role === "assistant" && (
-                <div className="w-7 h-7 rounded-full bg-gg-brand-muted flex items-center justify-center text-[10px] font-bold text-gg-brand shrink-0 mt-0.5">
+                <div className="w-7 h-7 bg-primary flex items-center justify-center text-[10px] font-bold text-text-inverse shrink-0 mt-0.5">
                   GG
                 </div>
               )}
               <div
-                className={`max-w-[80%] rounded-md px-4 py-3 text-sm leading-relaxed ${
+                className={`max-w-[80%] px-4 py-3 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-gg-btn-primary text-white"
-                    : "bg-gg-surface border border-gg-border text-gg-text"
+                    ? "bg-primary text-text-inverse"
+                    : "bg-surface border border-border text-text"
                 }`}
               >
                 {msg.role === "user" ? (
@@ -116,7 +116,7 @@ export default function ChatPage() {
                 )}
               </div>
               {msg.role === "user" && (
-                <div className="w-7 h-7 rounded-full bg-gg-surface-raised border border-gg-border flex items-center justify-center text-[10px] font-bold text-gg-text-secondary shrink-0 mt-0.5">
+                <div className="w-7 h-7 bg-accent flex items-center justify-center text-[10px] font-bold text-text-inverse shrink-0 mt-0.5">
                   You
                 </div>
               )}
@@ -125,14 +125,14 @@ export default function ChatPage() {
 
           {isLoading && (
             <div className="flex gap-3">
-              <div className="w-7 h-7 rounded-full bg-gg-brand-muted flex items-center justify-center text-[10px] font-bold text-gg-brand shrink-0 mt-0.5">
+              <div className="w-7 h-7 bg-primary flex items-center justify-center text-[10px] font-bold text-text-inverse shrink-0 mt-0.5">
                 GG
               </div>
-              <div className="bg-gg-surface border border-gg-border rounded-md px-4 py-3">
+              <div className="bg-surface border border-border px-4 py-3">
                 <div className="flex gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-gg-text-muted animate-typing" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-gg-text-muted animate-typing" style={{ animationDelay: "200ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-gg-text-muted animate-typing" style={{ animationDelay: "400ms" }} />
+                  <span className="w-2 h-2 bg-text-muted animate-typing" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-text-muted animate-typing" style={{ animationDelay: "200ms" }} />
+                  <span className="w-2 h-2 bg-text-muted animate-typing" style={{ animationDelay: "400ms" }} />
                 </div>
               </div>
             </div>
@@ -142,7 +142,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="py-4 border-t border-gg-border">
+        <div className="py-4 border-t border-border">
           <form onSubmit={handleSubmit} className="flex gap-2">
             <textarea
               ref={inputRef}
@@ -151,7 +151,7 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask about security, code review, or your project..."
               rows={1}
-              className="flex-1 bg-gg-surface border border-gg-border rounded-md px-4 py-2.5 text-sm text-gg-text placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand/30 resize-none transition-colors"
+              className="flex-1 bg-surface border border-border px-4 py-2.5 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary resize-none transition-colors"
               style={{ minHeight: "42px", maxHeight: "120px" }}
               onInput={(e) => {
                 const el = e.currentTarget;
@@ -162,7 +162,7 @@ export default function ChatPage() {
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="px-4 py-2.5 bg-gg-btn-primary hover:bg-gg-btn-primary-hover text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              className="px-4 py-2.5 bg-primary hover:bg-primary-hover text-text-inverse text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               {isLoading ? (
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -177,8 +177,8 @@ export default function ChatPage() {
               )}
             </button>
           </form>
-          <p className="text-[11px] text-gg-text-muted mt-2">
-            Powered by Claude AI. Shift+Enter for new line.
+          <p className="text-[11px] text-text-muted mt-2">
+            Powered by Claude. Shift+Enter for new line.
           </p>
         </div>
       </div>
