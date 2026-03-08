@@ -636,12 +636,47 @@ async def api_trigger_review(req: ManualReviewRequest, user: dict = Depends(get_
         raise HTTPException(status_code=500, detail="Review failed")
 
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+# ─── Reverse Proxy to Next.js Frontend ───────────────────────────────────────
+
+import httpx
+from starlette.responses import Response
+
+NEXTJS_URL = "http://localhost:3000"
+_proxy_client = httpx.AsyncClient(base_url=NEXTJS_URL, timeout=30.0)
+
+_HOP_HEADERS = {"transfer-encoding", "connection", "keep-alive", "te", "trailers", "upgrade", "content-encoding"}
+
+
+async def _proxy(request: Request, path: str) -> Response:
+    url = f"/{path}"
+    fwd_headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host",)}
+
+    try:
+        resp = await _proxy_client.request(
+            method=request.method,
+            url=url,
+            headers=fwd_headers,
+            content=await request.body(),
+            params=dict(request.query_params),
+        )
+        resp_headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_HEADERS}
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=resp_headers,
+        )
+    except httpx.ConnectError:
+        raise HTTPException(status_code=502, detail="Frontend dev server not running on port 3000")
 
 
 @app.get("/")
-async def serve_frontend():
-    return FileResponse(FRONTEND_DIR / "index.html")
+async def proxy_root(request: Request):
+    return await _proxy(request, "")
+
+
+@app.api_route("/{path:path}", methods=["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH"])
+async def proxy_to_frontend(request: Request, path: str):
+    return await _proxy(request, path)
 
 
 def main():
