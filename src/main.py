@@ -42,9 +42,12 @@ from .database import (
     authenticate_user,
     create_user,
     generate_api_key,
+    get_review_logs,
+    get_review_stats,
     get_user_repos,
     init_db,
     list_user_keys,
+    log_review,
     remove_user_repo,
     revoke_api_key,
     validate_api_key,
@@ -239,6 +242,11 @@ async def handle_webhook(
             "Review passed",
             settings.status_context,
         )
+        log_review(
+            repo=repo_full_name, pr_number=pr_number, pr_title=pr_title,
+            pr_author=pr_author, head_sha=head_sha, result="approved",
+            vuln_count=0, summary=result.summary,
+        )
         logger.info("PR approved — attempting merge")
         merged = merge_pr(repo_full_name, pr_number)
         if not merged:
@@ -258,6 +266,11 @@ async def handle_webhook(
             "failure",
             desc,
             settings.status_context,
+        )
+        log_review(
+            repo=repo_full_name, pr_number=pr_number, pr_title=pr_title,
+            pr_author=pr_author, head_sha=head_sha, result="failed",
+            vuln_count=vuln_count, summary=result.summary,
         )
 
     # Create Linear issues for high/critical vulnerabilities
@@ -331,6 +344,13 @@ async def _handle_override_comment(data: dict) -> dict:
         repo_full_name,
         pr_number,
         f"GitGuardian check overridden by @{commenter}.",
+    )
+    log_review(
+        repo=repo_full_name, pr_number=pr_number,
+        pr_title=issue.get("title", ""),
+        pr_author=issue.get("user", {}).get("login", ""),
+        head_sha=head_sha, result="overridden",
+        summary=f"Overridden by @{commenter}",
     )
     logger.info(
         "Check overridden by %s on %s#%d", commenter, repo_full_name, pr_number
@@ -520,6 +540,32 @@ async def api_security_issues(user: dict = Depends(get_current_user)):
     """List open security issues from Linear."""
     issues = await get_security_issues()
     return {"count": len(issues), "issues": issues}
+
+
+@app.get("/api/activity")
+async def api_activity(user: dict = Depends(get_current_user), repo: str | None = None, limit: int = 50):
+    """Get review activity logs, optionally filtered by repo."""
+    user_repos = get_user_repos(user["user_id"])
+    if repo and repo not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+    if repo:
+        logs = get_review_logs(repo=repo, limit=limit)
+    else:
+        # Only return logs for repos the user has connected
+        all_logs = get_review_logs(limit=200)
+        logs = [l for l in all_logs if l["repo"] in user_repos][:limit]
+    return {"logs": logs, "count": len(logs)}
+
+
+@app.get("/api/activity/stats")
+async def api_activity_stats(user: dict = Depends(get_current_user), repo: str | None = None):
+    """Get aggregate review stats."""
+    if repo:
+        user_repos = get_user_repos(user["user_id"])
+        if repo not in user_repos:
+            raise HTTPException(status_code=403, detail="Repo not in your account")
+    stats = get_review_stats(repo=repo)
+    return stats
 
 
 class ChatRequest(BaseModel):

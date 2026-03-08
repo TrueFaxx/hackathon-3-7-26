@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getSecurityIssues, SecurityIssue } from "@/lib/api";
+
+const POLL_INTERVAL = 15_000;
 
 function priorityToSeverity(p: number): string {
   if (p === 1) return "Critical";
@@ -35,20 +37,25 @@ export default function SecurityPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [issues, setIssues] = useState<SecurityIssue[]>([]);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchSecurity = useCallback(async () => {
+    try {
+      const res = await getSecurityIssues();
+      setIssues(res.issues);
+      setError("");
+    } catch {
+      setError("Could not fetch security issues");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function fetchSecurity() {
-      try {
-        const res = await getSecurityIssues();
-        setIssues(res.issues);
-      } catch {
-        setError("Could not fetch security issues");
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchSecurity();
-  }, []);
+    intervalRef.current = setInterval(fetchSecurity, POLL_INTERVAL);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchSecurity]);
 
   const critical = issues.filter((i) => i.priority === 1).length;
   const high = issues.filter((i) => i.priority === 2).length;

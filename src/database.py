@@ -45,6 +45,20 @@ def init_db():
             last_used_at TEXT,
             revoked INTEGER NOT NULL DEFAULT 0
         );
+        CREATE TABLE IF NOT EXISTS review_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            repo TEXT NOT NULL,
+            pr_number INTEGER NOT NULL,
+            pr_title TEXT NOT NULL,
+            pr_author TEXT NOT NULL,
+            head_sha TEXT NOT NULL,
+            result TEXT NOT NULL,
+            vuln_count INTEGER NOT NULL DEFAULT 0,
+            summary TEXT NOT NULL DEFAULT '',
+            reviewed_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_review_logs_repo ON review_logs(repo);
+        CREATE INDEX IF NOT EXISTS idx_review_logs_reviewed_at ON review_logs(reviewed_at);
     """)
     conn.commit()
     conn.close()
@@ -173,6 +187,70 @@ def remove_user_repo(user_id: int, repo_full_name: str) -> bool:
     conn.commit()
     conn.close()
     return cursor.rowcount > 0
+
+
+def log_review(
+    repo: str,
+    pr_number: int,
+    pr_title: str,
+    pr_author: str,
+    head_sha: str,
+    result: str,
+    vuln_count: int = 0,
+    summary: str = "",
+) -> int:
+    """Log a PR review result. Returns the log ID."""
+    conn = _connect()
+    cursor = conn.execute(
+        """INSERT INTO review_logs
+           (repo, pr_number, pr_title, pr_author, head_sha, result, vuln_count, summary, reviewed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (repo, pr_number, pr_title, pr_author, head_sha, result, vuln_count, summary,
+         datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+    log_id = cursor.lastrowid
+    conn.close()
+    return log_id
+
+
+def get_review_logs(repo: str | None = None, limit: int = 50) -> list[dict]:
+    """Get review logs, optionally filtered by repo."""
+    conn = _connect()
+    if repo:
+        rows = conn.execute(
+            "SELECT * FROM review_logs WHERE repo = ? ORDER BY reviewed_at DESC LIMIT ?",
+            (repo, limit),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM review_logs ORDER BY reviewed_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_review_stats(repo: str | None = None) -> dict:
+    """Get aggregate review stats, optionally filtered by repo."""
+    conn = _connect()
+    where = "WHERE repo = ?" if repo else ""
+    params: tuple = (repo,) if repo else ()
+
+    total = conn.execute(f"SELECT COUNT(*) as c FROM review_logs {where}", params).fetchone()["c"]
+    approved = conn.execute(f"SELECT COUNT(*) as c FROM review_logs {where} {'AND' if repo else 'WHERE'} result = 'approved'", params).fetchone()["c"]
+    failed = conn.execute(f"SELECT COUNT(*) as c FROM review_logs {where} {'AND' if repo else 'WHERE'} result = 'failed'", params).fetchone()["c"]
+    overridden = conn.execute(f"SELECT COUNT(*) as c FROM review_logs {where} {'AND' if repo else 'WHERE'} result = 'overridden'", params).fetchone()["c"]
+    total_vulns = conn.execute(f"SELECT COALESCE(SUM(vuln_count), 0) as c FROM review_logs {where}", params).fetchone()["c"]
+
+    conn.close()
+    return {
+        "total_reviews": total,
+        "approved": approved,
+        "failed": failed,
+        "overridden": overridden,
+        "total_vulns_found": total_vulns,
+    }
 
 
 def get_user_repos(user_id: int) -> list[str]:

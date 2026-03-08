@@ -209,3 +209,35 @@ export async function removeRepo(owner: string, repo: string) {
 export async function healthCheck() {
   return request<{ status: string }>("/health", {}, false);
 }
+
+export interface ReviewLog {
+  id: number;
+  repo: string;
+  pr_number: number;
+  pr_title: string;
+  pr_author: string;
+  head_sha: string;
+  result: string;
+  vuln_count: number;
+  summary: string;
+  reviewed_at: string;
+}
+
+export async function getActivity(repo?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (repo) params.set("repo", repo);
+  params.set("limit", String(limit));
+  return request<{ logs: ReviewLog[]; count: number }>(`/api/activity?${params}`);
+}
+
+export async function getActivityStats(repo?: string) {
+  const params = new URLSearchParams();
+  if (repo) params.set("repo", repo);
+  return request<{
+    total_reviews: number;
+    approved: number;
+    failed: number;
+    overridden: number;
+    total_vulns_found: number;
+  }>(`/api/activity/stats?${params}`);
+}
