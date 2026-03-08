@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getAllPRs, PullRequest } from "@/lib/api";
+
+const POLL_INTERVAL = 15_000;
 
 const tabs = ["All", "Approved", "Reviewing", "Failed"] as const;
 type Tab = (typeof tabs)[number];
@@ -41,20 +43,25 @@ export default function PullRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [prs, setPrs] = useState<PullRequest[]>([]);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchPRs = useCallback(async () => {
+    try {
+      const res = await getAllPRs();
+      setPrs(res.pull_requests);
+      setError("");
+    } catch {
+      setError("Could not connect to backend");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function fetchPRs() {
-      try {
-        const res = await getAllPRs();
-        setPrs(res.pull_requests);
-      } catch {
-        setError("Could not connect to backend");
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchPRs();
-  }, []);
+    intervalRef.current = setInterval(fetchPRs, POLL_INTERVAL);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchPRs]);
 
   const filtered = prs.filter((pr) => {
     const status = guardianToStatus(pr.guardian_status);

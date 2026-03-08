@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getReposDetails, addRepo, removeRepo, RepoDetail } from "@/lib/api";
+
+const POLL_INTERVAL = 15_000;
 
 const langColors: Record<string, string> = {
   TypeScript: "#3178c6",
@@ -50,8 +52,12 @@ export default function RepositoriesPage() {
     }
   }
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     fetchRepos();
+    intervalRef.current = setInterval(fetchRepos, POLL_INTERVAL);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   async function handleAddRepo() {

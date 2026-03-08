@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getRepos } from "@/lib/api";
@@ -73,10 +73,13 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [connectedRepos, setConnectedRepos] = useState<string[]>([]);
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
-    getRepos()
-      .then((res) => setConnectedRepos(res.repos))
-      .catch(() => {});
+    const fetch = () => getRepos().then((res) => setConnectedRepos(res.repos)).catch(() => {});
+    fetch();
+    intervalRef.current = setInterval(fetch, 15_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   function isActive(href: string) {
