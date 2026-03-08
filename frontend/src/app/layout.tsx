@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GitGuardian - AI-Powered Code Review & Auto-Merge",
+  title: "GitGuardian - Autonomous Code Review",
   description:
-    "Autonomous AI that reviews pull requests, runs tests, detects vulnerabilities, and auto-merges safe code.",
+    "AI-powered code review that catches vulnerabilities, enforces standards, and auto-merges safe pull requests.",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className="antialiased">{children}</body>
     </html>
   );

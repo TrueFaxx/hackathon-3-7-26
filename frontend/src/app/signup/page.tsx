@@ -21,10 +21,10 @@ function getPasswordStrength(pw: string): {
   if (/[^A-Za-z0-9]/.test(pw)) score++;
 
   if (score <= 1)
-    return { label: "Weak", color: "bg-gg-danger", textColor: "text-gg-danger", width: "33%" };
+    return { label: "Weak", color: "bg-danger", textColor: "text-danger", width: "33%" };
   if (score <= 3)
-    return { label: "Medium", color: "bg-gg-warning", textColor: "text-gg-warning", width: "66%" };
-  return { label: "Strong", color: "bg-gg-brand", textColor: "text-gg-brand", width: "100%" };
+    return { label: "Medium", color: "bg-warning", textColor: "text-warning", width: "66%" };
+  return { label: "Strong", color: "bg-primary", textColor: "text-primary", width: "100%" };
 }
 
 export default function SignupPage() {
@@ -56,54 +56,63 @@ export default function SignupPage() {
     }
   };
 
-  const inputClass =
-    "w-full bg-gg-surface border border-gg-border rounded-lg px-3.5 h-[44px] text-sm text-gg-text placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand/30 transition-colors";
-
   return (
-    <div className="min-h-screen bg-gg-bg relative flex flex-col">
-      <div className="absolute inset-0 dot-grid pointer-events-none" />
-
-      {/* Top-left wordmark */}
-      <div className="relative z-10 px-8 pt-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-gg-text hover:text-gg-text-secondary transition-colors">
-          <span className="font-semibold text-[15px]">GitGuardian</span>
+    <div className="min-h-screen bg-bg flex flex-col">
+      {/* Top bar */}
+      <div className="px-6 pt-6">
+        <Link href="/" className="text-lg font-bold text-text hover:opacity-70 transition-opacity">
+          GitGuardian
         </Link>
       </div>
 
-      {/* Centered content */}
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4">
-        <div className="w-full max-w-[400px] animate-float-in">
-          {/* Heading */}
-          <h1 className="text-center text-gg-text font-semibold text-xl mb-5">
+      {/* Centered form */}
+      <div className="flex-1 flex items-center justify-center px-6">
+        <div className="w-full max-w-[380px] animate-slide-up">
+          <h1 className="text-2xl font-bold text-text mb-8">
             Create your account
           </h1>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <p className="text-gg-danger text-sm text-center">{error}</p>
+              <div className="px-4 py-3 bg-danger-light text-danger text-sm border border-danger/20">
+                {error}
+              </div>
             )}
-            <input
-              type="text"
-              autoComplete="username"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Username"
-              className={inputClass}
-            />
-
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email address"
-              className={inputClass}
-            />
 
             <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                autoComplete="username"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-surface border border-border px-4 h-12 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors"
+                placeholder="Choose a username"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-surface border border-border px-4 h-12 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">
+                Password
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -112,40 +121,27 @@ export default function SignupPage() {
                   minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password (min 8 characters)"
-                  className={`${inputClass} pr-11`}
+                  className="w-full bg-surface border border-border px-4 pr-12 h-12 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors"
+                  placeholder="Min 8 characters"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gg-text-muted hover:text-gg-text transition-colors"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-text-muted hover:text-text transition-colors uppercase"
                 >
-                  {showPassword ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
 
               {password && (
-                <div className="mt-2">
-                  <div className="h-1 w-full bg-gg-border-subtle rounded-full overflow-hidden">
+                <div className="mt-3">
+                  <div className="h-1 w-full bg-border overflow-hidden">
                     <div
-                      className={`h-full ${strength.color} rounded-full transition-all duration-300`}
+                      className={`h-full ${strength.color} transition-all duration-300`}
                       style={{ width: strength.width }}
                     />
                   </div>
-                  <p className={`text-xs mt-1 ${strength.textColor}`}>
+                  <p className={`text-xs mt-1.5 font-bold ${strength.textColor}`}>
                     {strength.label}
                   </p>
                 </div>
@@ -155,7 +151,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={isLoading || !canSubmit}
-              className="w-full flex items-center justify-center gap-2 bg-gg-btn-primary hover:bg-gg-btn-primary-hover text-white font-semibold text-sm rounded-lg h-[44px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-12 bg-primary text-text-inverse text-sm font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -163,7 +159,7 @@ export default function SignupPage() {
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
                     <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
                   </svg>
-                  Creating account…
+                  Creating account...
                 </>
               ) : (
                 "Create account"
@@ -171,10 +167,9 @@ export default function SignupPage() {
             </button>
           </form>
 
-          {/* Sign in link */}
-          <div className="mt-6 border border-gg-border rounded-lg px-4 py-3 text-center text-sm">
-            <span className="text-gg-text-secondary">Already have an account?</span>{" "}
-            <Link href="/login" className="text-gg-brand hover:underline font-medium">
+          <div className="mt-8 pt-6 border-t border-border text-center">
+            <span className="text-sm text-text-secondary">Already have an account? </span>
+            <Link href="/login" className="text-sm font-bold text-text hover:text-primary transition-colors">
               Sign in
             </Link>
           </div>
@@ -182,11 +177,11 @@ export default function SignupPage() {
       </div>
 
       {/* Footer */}
-      <div className="relative z-10 py-6 text-center">
-        <span className="text-xs text-gg-text-muted">
-          <Link href="/terms" className="hover:text-gg-text-secondary transition-colors">Terms</Link>
-          <span className="mx-2">·</span>
-          <Link href="/privacy" className="hover:text-gg-text-secondary transition-colors">Privacy</Link>
+      <div className="py-6 text-center">
+        <span className="text-xs text-text-muted">
+          <Link href="/terms" className="hover:text-text-secondary transition-colors">Terms</Link>
+          <span className="mx-2">&middot;</span>
+          <Link href="/privacy" className="hover:text-text-secondary transition-colors">Privacy</Link>
         </span>
       </div>
     </div>

@@ -1,57 +1,70 @@
 @import "tailwindcss";
 
 @theme {
-  /* Background — warm dark, not pure black */
-  --color-gg-bg: #1b1f23;
-  --color-gg-surface: #24292e;
-  --color-gg-surface-raised: #2f363d;
-  --color-gg-surface-overlay: #3b4148;
-  --color-gg-inset: #181c20;
+  /* Primary brand blue */
+  --color-primary: #004DCE;
+  --color-primary-hover: #003DA5;
+  --color-primary-light: #E8F0FE;
+  --color-primary-muted: rgba(0, 77, 206, 0.08);
 
-  /* Borders — visible but not harsh */
-  --color-gg-border: #444d56;
-  --color-gg-border-subtle: #383e45;
-  --color-gg-border-bright: #586069;
+  /* Accent / text dark */
+  --color-accent: #120E20;
+  --color-accent-light: #2A2535;
 
-  /* Text — high contrast, warm whites */
-  --color-gg-text: #e1e4e8;
-  --color-gg-text-secondary: #959da5;
-  --color-gg-text-muted: #6a737d;
-  --color-gg-text-link: #79b8ff;
+  /* Backgrounds */
+  --color-bg: #FEFEFE;
+  --color-bg-alt: #F5F5F7;
+  --color-bg-dark: #120E20;
+  --color-bg-blue: #004DCE;
 
-  /* Brand — blue accent */
-  --color-gg-brand: #58a6ff;
-  --color-gg-brand-dim: #388bfd;
-  --color-gg-brand-muted: rgba(56, 139, 253, 0.15);
-  --color-gg-brand-subtle: rgba(56, 139, 253, 0.08);
+  /* Text */
+  --color-text: #120E20;
+  --color-text-secondary: #5A5666;
+  --color-text-muted: #8E8A99;
+  --color-text-inverse: #FEFEFE;
+  --color-text-link: #120E20;
 
-  /* Accent */
-  --color-gg-accent: #d2a8ff;
-  --color-gg-accent-dim: #bc8cff;
-  --color-gg-accent-muted: rgba(210, 168, 255, 0.12);
+  /* Borders */
+  --color-border: #E2E0E6;
+  --color-border-strong: #C8C5CE;
+  --color-border-subtle: #F0EFF2;
 
-  /* Status colors — classic, readable */
-  --color-gg-success: #3fb950;
-  --color-gg-success-muted: rgba(63, 185, 80, 0.12);
-  --color-gg-danger: #f85149;
-  --color-gg-danger-muted: rgba(248, 81, 73, 0.12);
-  --color-gg-warning: #d29922;
-  --color-gg-warning-muted: rgba(210, 153, 34, 0.12);
-  --color-gg-info: #58a6ff;
-  --color-gg-info-muted: rgba(88, 166, 255, 0.12);
-  --color-gg-purple: #d2a8ff;
-  --color-gg-purple-muted: rgba(210, 168, 255, 0.12);
+  /* Status */
+  --color-success: #1A7F37;
+  --color-success-light: #DAFBE1;
+  --color-danger: #CF222E;
+  --color-danger-light: #FFEBE9;
+  --color-warning: #9A6700;
+  --color-warning-light: #FFF8C5;
+  --color-info: #004DCE;
+  --color-info-light: #E8F0FE;
 
-  /* Buttons */
-  --color-gg-btn: #2f363d;
-  --color-gg-btn-hover: #3b4148;
-  --color-gg-btn-active: #444d56;
-  --color-gg-btn-border: #4a5260;
-  --color-gg-btn-primary: #1f6feb;
-  --color-gg-btn-primary-hover: #388bfd;
+  /* Surfaces (for dashboard) */
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #F9F9FB;
+  --color-surface-overlay: #F0EFF2;
+  --color-inset: #F5F5F7;
 
-  /* Font — system stack, no serifs */
-  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  /* Font */
+  --font-body: "Px Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Load Px Grotesk approximation via system fonts */
+@font-face {
+  font-family: "Px Grotesk";
+  src: local("PxGrotesk-Regular"), local("Px Grotesk Regular"), local("-apple-system");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Px Grotesk";
+  src: local("PxGrotesk-Bold"), local("Px Grotesk Bold"), local("-apple-system");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 html {
@@ -59,27 +72,34 @@ html {
 }
 
 body {
-  background-color: var(--color-gg-bg);
-  color: var(--color-gg-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  font-size: 14px;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background-color: rgba(56, 139, 253, 0.3);
+  background-color: rgba(0, 77, 206, 0.2);
+  color: var(--color-text);
 }
 
-/* Simple fade for page transitions */
+/* Animations */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-@keyframes float-in {
-  from { opacity: 0; transform: translateY(6px); }
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes typing {
@@ -87,44 +107,45 @@ body {
   50% { opacity: 1; }
 }
 
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 .animate-fade-in {
-  animation: fade-in 0.25s ease-out forwards;
+  animation: fade-in 0.4s ease-out forwards;
 }
 
 .animate-slide-up {
-  animation: float-in 0.3s ease-out forwards;
+  animation: slide-up 0.5s ease-out forwards;
 }
 
-.animate-float-in {
-  animation: float-in 0.3s ease-out forwards;
+.animate-slide-in {
+  animation: slide-in-right 0.4s ease-out forwards;
 }
 
 .animate-typing {
   animation: typing 1.2s ease-in-out infinite;
 }
 
-/* No dot grids or glow effects — clean backgrounds */
-.grid-bg {
-  background: none;
+.animate-marquee {
+  animation: marquee 20s linear infinite;
 }
 
-.dot-grid {
-  background: none;
-}
-
-.glow-border {
-  box-shadow: none;
-  border: 1px solid var(--color-gg-border);
-}
+/* Stagger delay utilities */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
 
 /* Chat markdown styles */
 .chat-markdown p { margin: 0.4em 0; }
 .chat-markdown p:first-child { margin-top: 0; }
 .chat-markdown p:last-child { margin-bottom: 0; }
 .chat-markdown h1, .chat-markdown h2, .chat-markdown h3 {
-  font-weight: 600;
+  font-weight: 700;
   margin: 0.8em 0 0.4em;
-  color: var(--color-gg-text);
+  color: var(--color-text);
 }
 .chat-markdown h1 { font-size: 1.15em; }
 .chat-markdown h2 { font-size: 1.05em; }
@@ -135,17 +156,15 @@ body {
 }
 .chat-markdown li { margin: 0.2em 0; }
 .chat-markdown code {
-  background: var(--color-gg-inset);
-  border: 1px solid var(--color-gg-border-subtle);
-  border-radius: 4px;
+  background: var(--color-inset);
+  border: 1px solid var(--color-border);
   padding: 0.15em 0.4em;
   font-size: 0.88em;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 .chat-markdown pre {
-  background: var(--color-gg-inset);
-  border: 1px solid var(--color-gg-border-subtle);
-  border-radius: 6px;
+  background: var(--color-bg-dark);
+  color: #e1e4e8;
   padding: 0.75em 1em;
   margin: 0.5em 0;
   overflow-x: auto;
@@ -155,21 +174,22 @@ body {
   border: none;
   padding: 0;
   font-size: 0.85em;
+  color: inherit;
 }
 .chat-markdown blockquote {
-  border-left: 3px solid var(--color-gg-border);
+  border-left: 3px solid var(--color-primary);
   padding-left: 0.8em;
   margin: 0.5em 0;
-  color: var(--color-gg-text-secondary);
+  color: var(--color-text-secondary);
 }
 .chat-markdown a {
-  color: var(--color-gg-text-link);
+  color: var(--color-primary);
   text-decoration: underline;
 }
-.chat-markdown strong { color: var(--color-gg-text); }
+.chat-markdown strong { color: var(--color-text); }
 .chat-markdown hr {
   border: none;
-  border-top: 1px solid var(--color-gg-border-subtle);
+  border-top: 1px solid var(--color-border);
   margin: 0.6em 0;
 }
 .chat-markdown table {
@@ -178,12 +198,12 @@ body {
   width: 100%;
 }
 .chat-markdown th, .chat-markdown td {
-  border: 1px solid var(--color-gg-border-subtle);
+  border: 1px solid var(--color-border);
   padding: 0.3em 0.6em;
   text-align: left;
   font-size: 0.9em;
 }
 .chat-markdown th {
-  background: var(--color-gg-inset);
+  background: var(--color-inset);
   font-weight: 600;
 }
