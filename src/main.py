@@ -576,6 +576,316 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     return ChatResponse(reply=response.content[0].text)
 
 
+# ─── AI Testing Endpoint ─────────────────────────────────────────────────────
+
+
+class TestRequest(BaseModel):
+    repo: str  # e.g. "owner/repo"
+    feature: str  # description of the feature to test
+    mode: str = "alpha"  # alpha | beta | security | code_review
+    files: list[str] = []  # optional specific files to focus on
+
+
+TEST_SYSTEM_PROMPT = """\
+You are GitGuardian's autonomous testing engine. You are given full source code \
+from a repository and a feature description. Your job is to:
+
+1. READ the actual source code provided.
+2. IDENTIFY all code paths related to the described feature.
+3. GENERATE two types of tests:
+   a) "traced" tests — trace code logic mentally to verify correctness
+   b) "api" tests — real HTTP requests to test API endpoints
+   c) "ui" tests — real HTTP fetches to verify frontend pages load correctly
+4. For traced tests, walk through the actual code conditionals step by step.
+5. For api/ui tests, specify exact requests that will be EXECUTED against the running server.
+
+You must trace real code paths — not guess. If a function validates input length >= 8, \
+and your test sends a 5-char input, it FAILS. Trace the actual conditionals.
+
+Respond ONLY with valid JSON matching this schema:
+{
+  "feature": "name of feature tested",
+  "mode": "alpha|beta|security|code_review",
+  "summary": "one-paragraph summary of test results",
+  "files_analyzed": ["list of files you read and traced"],
+  "tests": [
+    {
+      "id": "T1",
+      "type": "traced|api|ui",
+      "name": "descriptive test name",
+      "category": "functional|edge_case|security|performance|integration|ui",
+      "description": "what this test checks",
+      "input": "the specific input or action",
+      "expected": "what should happen",
+      "actual": "what the code actually does (traced from source) — leave empty string for api/ui tests, they will be executed",
+      "status": "pass|fail|warn",
+      "severity": "low|medium|high|critical",
+      "file": "path/to/relevant/file",
+      "line": 42,
+      "fix": "suggested fix if status is fail or warn, otherwise null",
+      "endpoint": "/api/some/path (for api tests only)",
+      "method": "GET|POST|DELETE (for api tests only)",
+      "body": {"key": "value (for api POST tests only, can be null)"},
+      "expected_status": 200,
+      "expected_body_contains": "string or list of strings to check in response (api tests)",
+      "path": "/ (for ui tests — the page path to fetch)",
+      "expected_contains": ["strings that should appear in page HTML (ui tests)"],
+      "expected_not_contains": ["strings that should NOT appear in page HTML (ui tests)"]
+    }
+  ],
+  "coverage": {
+    "tested_paths": 12,
+    "total_identified_paths": 15,
+    "percentage": 80
+  },
+  "recommendations": ["list of actionable recommendations"],
+  "test_code": "optional: a complete Python test script using httpx that tests the API endpoints. Use assert statements. The script should be self-contained and print results."
+}
+
+IMPORTANT for api tests: The backend runs at http://localhost:8000. Use real endpoint paths from the source code.
+IMPORTANT for ui tests: The frontend runs at http://localhost:3000. Test that pages render and contain expected text.
+IMPORTANT: Generate at LEAST 3 api tests and 2 ui tests in addition to traced tests when the feature involves endpoints or UI.
+"""
+
+ALPHA_ADDENDUM = """
+ALPHA TESTING MODE: Focus on core functionality correctness, happy paths, \
+basic error handling, and input validation. Test the feature as if it's being \
+used for the first time by internal testers. Look for crashes, unhandled \
+exceptions, wrong return values, and missing validation.
+"""
+
+BETA_ADDENDUM = """
+BETA TESTING MODE: Focus on edge cases, concurrency issues, performance under \
+load, user experience problems, integration issues between components, and \
+real-world usage patterns. Test the feature as if real users are about to use \
+it. Look for race conditions, memory leaks, slow paths, confusing error \
+messages, and data consistency issues.
+"""
+
+SECURITY_ADDENDUM = """
+SECURITY AUDIT MODE: Focus exclusively on security vulnerabilities. Trace all \
+user input from entry points to data sinks. Check for: SQL injection, XSS, \
+SSRF, command injection, path traversal, IDOR, hardcoded secrets, insecure \
+deserialization, missing auth checks, broken access control, sensitive data \
+exposure. Every test should attempt to exploit a specific vulnerability.
+"""
+
+CODE_REVIEW_ADDENDUM = """
+CODE REVIEW MODE: Focus on code quality, design patterns, maintainability, \
+and best practices. Check for: dead code, duplicated logic, poor error \
+handling, missing type safety, broken abstractions, inconsistent naming, \
+missing documentation for complex logic, and violations of SOLID principles.
+"""
+
+MODE_ADDENDUMS = {
+    "alpha": ALPHA_ADDENDUM,
+    "beta": BETA_ADDENDUM,
+    "security": SECURITY_ADDENDUM,
+    "code_review": CODE_REVIEW_ADDENDUM,
+}
+
+
+@app.post("/api/test")
+async def api_run_tests(req: TestRequest, user: dict = Depends(get_current_user)):
+    """AI-driven feature testing: reads repo code and runs test scenarios."""
+    import anthropic
+
+    # Verify repo belongs to user
+    user_repos = get_user_repos(user["user_id"])
+    if req.repo not in user_repos:
+        raise HTTPException(status_code=403, detail="Repo not in your account")
+
+    from .github_client import _gh
+
+    repo_obj = _gh().get_repo(req.repo)
+    default_branch = repo_obj.default_branch
+
+    # Gather repo context
+    tree_paths = get_tree_paths(req.repo, default_branch)
+    repo_tree = get_repo_tree(req.repo, default_branch)
+
+    # Determine which files to read
+    files_to_read: list[str] = []
+    if req.files:
+        # User specified files
+        files_to_read = [f for f in req.files if f in tree_paths]
+    else:
+        # Auto-detect: read all source files (skip binaries, node_modules, etc.)
+        skip_prefixes = (
+            "node_modules/", ".git/", ".next/", "__pycache__/", "venv/",
+            "dist/", "build/", ".cache/", "coverage/",
+        )
+        source_exts = {
+            ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs",
+            ".java", ".rb", ".php", ".swift", ".kt",
+        }
+        for path in sorted(tree_paths):
+            if any(path.startswith(p) for p in skip_prefixes):
+                continue
+            ext = "." + path.rsplit(".", 1)[1] if "." in path else ""
+            if ext in source_exts:
+                files_to_read.append(path)
+            if len(files_to_read) >= 40:
+                break
+
+    # Fetch file contents
+    file_contents: list[dict] = []
+    for path in files_to_read:
+        try:
+            content = repo_obj.get_contents(path, ref=default_branch)
+            if hasattr(content, "decoded_content") and content.size and content.size <= 100_000:
+                text = content.decoded_content.decode("utf-8", errors="replace")
+                file_contents.append({"filename": path, "content": text})
+        except Exception:
+            continue
+
+    # Also grab config files for context
+    config_files = get_config_files(req.repo, default_branch)
+
+    # Build the prompt
+    sections = [f"## Repository: {req.repo}\n## Feature to test: {req.feature}"]
+
+    if repo_tree:
+        sections.append(f"## Repository Structure\n```\n{repo_tree}\n```")
+
+    if config_files:
+        cfg_text = "\n\n".join(
+            f"### {f['filename']}\n```\n{f['content']}\n```" for f in config_files
+        )
+        sections.append(f"## Config Files\n{cfg_text}")
+
+    if file_contents:
+        src_text = "\n\n".join(
+            f"### {f['filename']}\n```\n{f['content']}\n```" for f in file_contents
+        )
+        sections.append(f"## Source Code\n{src_text}")
+
+    user_message = "\n\n---\n\n".join(sections)
+
+    # Truncate if needed
+    if len(user_message) > 180_000:
+        user_message = user_message[:180_000] + "\n\n... (truncated for length)"
+
+    system = TEST_SYSTEM_PROMPT + MODE_ADDENDUMS.get(req.mode, ALPHA_ADDENDUM)
+
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=8192,
+        system=system,
+        messages=[{"role": "user", "content": user_message}],
+    )
+
+    raw = response.content[0].text
+    # Strip markdown code fences if present
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+
+    import json
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        # If Claude didn't return valid JSON, wrap it
+        result = {
+            "feature": req.feature,
+            "mode": req.mode,
+            "summary": raw,
+            "files_analyzed": [f["filename"] for f in file_contents],
+            "tests": [],
+            "coverage": {"tested_paths": 0, "total_identified_paths": 0, "percentage": 0},
+            "recommendations": [],
+        }
+
+    # ─── Phase 2: Execute api and ui tests against running servers ────────
+    from .test_runner import execute_api_tests, execute_ui_tests, execute_code_test
+
+    api_tests = [t for t in result.get("tests", []) if t.get("type") == "api"]
+    ui_tests = [t for t in result.get("tests", []) if t.get("type") == "ui"]
+    traced_tests = [t for t in result.get("tests", []) if t.get("type", "traced") == "traced"]
+
+    execution_log: list[str] = []
+
+    # Execute API tests
+    if api_tests:
+        execution_log.append(f"Executing {len(api_tests)} API tests against backend...")
+        # Get the user's actual API key for authenticated requests
+        from .database import generate_api_key as _gen_key
+        temp_key = _gen_key(user["user_id"], name="test-runner-temp")
+        try:
+            executed_api = await execute_api_tests(
+                api_tests,
+                backend_url=f"http://localhost:{settings.port}",
+                api_key=temp_key,
+            )
+            # Merge execution results back
+            api_map = {t["id"]: t for t in executed_api}
+            for t in result["tests"]:
+                if t.get("id") in api_map:
+                    ex = api_map[t["id"]]
+                    t["actual"] = ex.get("actual", t.get("actual", ""))
+                    t["status"] = ex.get("status", t.get("status", "warn"))
+                    t["executed"] = True
+            execution_log.append(
+                f"API tests complete: {sum(1 for t in executed_api if t.get('status') == 'pass')} passed, "
+                f"{sum(1 for t in executed_api if t.get('status') == 'fail')} failed"
+            )
+        except Exception as e:
+            execution_log.append(f"API test execution error: {str(e)}")
+        finally:
+            # Revoke the temporary key
+            try:
+                revoke_api_key(user["user_id"], temp_key[:10])
+            except Exception:
+                pass
+
+    # Execute UI tests
+    if ui_tests:
+        execution_log.append(f"Executing {len(ui_tests)} UI tests against frontend...")
+        try:
+            executed_ui = await execute_ui_tests(ui_tests)
+            ui_map = {t["id"]: t for t in executed_ui}
+            for t in result["tests"]:
+                if t.get("id") in ui_map:
+                    ex = ui_map[t["id"]]
+                    t["actual"] = ex.get("actual", t.get("actual", ""))
+                    t["status"] = ex.get("status", t.get("status", "warn"))
+                    t["executed"] = True
+            execution_log.append(
+                f"UI tests complete: {sum(1 for t in executed_ui if t.get('status') == 'pass')} passed, "
+                f"{sum(1 for t in executed_ui if t.get('status') == 'fail')} failed"
+            )
+        except Exception as e:
+            execution_log.append(f"UI test execution error: {str(e)}")
+
+    # Execute generated test code if present
+    test_code = result.get("test_code")
+    code_result = None
+    if test_code and isinstance(test_code, str) and len(test_code) > 20:
+        execution_log.append("Executing generated test script...")
+        code_result = execute_code_test(test_code)
+        if code_result["passed"]:
+            execution_log.append("Test script passed")
+        else:
+            execution_log.append(f"Test script failed (exit {code_result['exit_code']})")
+
+    # Recompute coverage based on actual execution
+    total = len(result.get("tests", []))
+    passed = sum(1 for t in result.get("tests", []) if t.get("status") == "pass")
+    failed = sum(1 for t in result.get("tests", []) if t.get("status") == "fail")
+    if total > 0:
+        result["coverage"] = {
+            "tested_paths": total,
+            "total_identified_paths": total,
+            "percentage": round(passed / total * 100),
+        }
+
+    result["execution_log"] = execution_log
+    if code_result:
+        result["code_execution"] = code_result
+
+    return result
+
+
 class ManualReviewRequest(BaseModel):
     repo: str  # e.g. "owner/repo"
     pr_number: int

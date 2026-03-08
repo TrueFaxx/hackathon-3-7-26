@@ -172,6 +172,61 @@ export async function triggerReview(repo: string, prNumber: number) {
   });
 }
 
+// AI Testing
+export interface TestCase {
+  id: string;
+  type?: "traced" | "api" | "ui";
+  name: string;
+  category: string;
+  description: string;
+  input: string;
+  expected: string;
+  actual: string;
+  status: "pass" | "fail" | "warn";
+  severity: string;
+  file: string;
+  line: number | null;
+  fix: string | null;
+  executed?: boolean;
+  endpoint?: string;
+  method?: string;
+  path?: string;
+}
+
+export interface TestResult {
+  feature: string;
+  mode: string;
+  summary: string;
+  files_analyzed: string[];
+  tests: TestCase[];
+  coverage: {
+    tested_paths: number;
+    total_identified_paths: number;
+    percentage: number;
+  };
+  recommendations: string[];
+  execution_log?: string[];
+  test_code?: string;
+  code_execution?: {
+    exit_code: number;
+    stdout: string;
+    stderr: string;
+    passed: boolean;
+  };
+}
+
+export async function runFeatureTest(
+  repo: string,
+  feature: string,
+  mode: string = "alpha",
+  files: string[] = [],
+) {
+  return request<TestResult>("/api/test", {
+    method: "POST",
+    body: JSON.stringify({ repo, feature, mode, files }),
+  });
+}
+
 // API Keys
 export interface ApiKeyInfo {
   prefix: string;
