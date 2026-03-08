@@ -1,29 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getSecurityIssues, SecurityIssue } from "@/lib/api";
+import { useEffect, useState } from "react";
+import {
+  ShieldAlert,
+  ExternalLink,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
+import { getSecurityIssues, type SecurityIssue } from "@/lib/api";
 
-function priorityToSeverity(p: number): string {
-  if (p === 1) return "Critical";
-  if (p === 2) return "High";
-  return "Medium";
+function PriorityBadge({ priority }: { priority: number }) {
+  if (priority === 1)
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-danger bg-danger-light px-2 py-0.5">
+        <AlertTriangle className="w-3 h-3" /> Critical
+      </span>
+    );
+  if (priority === 2)
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-warning bg-warning-light px-2 py-0.5">
+        <AlertTriangle className="w-3 h-3" /> High
+      </span>
+    );
+  return (
+    <span className="text-xs font-medium text-text-secondary bg-surface px-2 py-0.5">
+      Medium
+    </span>
+  );
 }
 
-function SeverityBadge({ severity }: { severity: string }) {
-  const cfg =
-    severity === "Critical"
-      ? "bg-gg-danger-muted text-gg-danger"
-      : severity === "High"
-        ? "bg-gg-warning-muted text-gg-warning"
-        : "bg-gg-info-muted text-gg-info";
-  return <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${cfg}`}>{severity}</span>;
-}
-
-function timeAgo(iso: string): string {
-  if (!iso) return "";
-  const diff = Date.now() - new Date(iso).getTime();
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -32,153 +40,99 @@ function timeAgo(iso: string): string {
 }
 
 export default function SecurityPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [issues, setIssues] = useState<SecurityIssue[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchSecurity() {
-      try {
-        const res = await getSecurityIssues();
-        setIssues(res.issues);
-      } catch {
-        setError("Could not fetch security issues");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchSecurity();
-  }, []);
-
-  const critical = issues.filter((i) => i.priority === 1).length;
-  const high = issues.filter((i) => i.priority === 2).length;
-  const medium = issues.filter((i) => i.priority >= 3).length;
-
-  const summaryCards = [
-    { label: "Critical", count: critical, color: "text-gg-danger", bg: "bg-gg-danger-muted", border: "border-gg-danger/20" },
-    { label: "High", count: high, color: "text-gg-warning", bg: "bg-gg-warning-muted", border: "border-gg-warning/20" },
-    { label: "Medium", count: medium, color: "text-gg-info", bg: "bg-gg-info-muted", border: "border-gg-info/20" },
-  ];
-
-  if (loading) {
-    return (
-      <div className="min-h-full bg-gg-bg flex items-center justify-center">
-        <p className="text-gg-text-secondary">Loading...</p>
-      </div>
-    );
+  function fetchIssues() {
+    setLoading(true);
+    getSecurityIssues()
+      .then((r) => setIssues(r.issues))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }
 
+  useEffect(() => {
+    fetchIssues();
+  }, []);
+
   return (
-    <div className="min-h-full bg-gg-bg">
-      <div className="max-w-6xl mx-auto px-8 py-8">
-        <div className="flex items-center gap-3 mb-8">
-          <h1
-            className="text-[24px] text-gg-text"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Security Overview
-          </h1>
-          {issues.length > 0 && (
-            <span className="text-sm font-semibold bg-gg-danger-muted text-gg-danger px-2.5 py-0.5 rounded-full">
-              {issues.length}
-            </span>
-          )}
+    <div className="max-w-[900px]">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-extrabold">Security Issues</h1>
+        <button
+          onClick={fetchIssues}
+          className="text-text-secondary hover:text-text transition-colors p-2"
+          title="Refresh"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-px bg-border mb-8">
+        <div className="bg-bg p-5 text-center">
+          <p className="text-2xl font-extrabold">{issues.length}</p>
+          <p className="text-xs text-text-secondary mt-1">Total Issues</p>
         </div>
+        <div className="bg-bg p-5 text-center">
+          <p className="text-2xl font-extrabold text-danger">
+            {issues.filter((i) => i.priority === 1).length}
+          </p>
+          <p className="text-xs text-text-secondary mt-1">Critical</p>
+        </div>
+        <div className="bg-bg p-5 text-center">
+          <p className="text-2xl font-extrabold text-warning">
+            {issues.filter((i) => i.priority === 2).length}
+          </p>
+          <p className="text-xs text-text-secondary mt-1">High</p>
+        </div>
+      </div>
 
-        {error && (
-          <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
-          {summaryCards.map((card) => (
+      {loading ? (
+        <div className="flex items-center justify-center h-48">
+          <div className="text-sm text-text-secondary">Loading...</div>
+        </div>
+      ) : issues.length === 0 ? (
+        <div className="bg-bg border border-border p-12 text-center">
+          <ShieldAlert className="w-8 h-8 text-success mx-auto mb-3" />
+          <p className="text-sm font-medium mb-1">No security issues found</p>
+          <p className="text-xs text-text-secondary">
+            GitGuardian is monitoring your repositories for vulnerabilities.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-bg border border-border">
+          {issues.map((issue) => (
             <div
-              key={card.label}
-              className={`${card.bg} border ${card.border} rounded-xl p-6 text-center hover:border-gg-border-bright transition-all duration-150`}
+              key={issue.id}
+              className="p-5 border-b border-border last:border-b-0 hover:bg-surface/50 transition-colors"
             >
-              <div className={`text-4xl font-bold ${card.color} mb-2`}>{card.count}</div>
-              <div className={`text-sm font-semibold ${card.color}`}>{card.label}</div>
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="flex items-center gap-2">
+                  <PriorityBadge priority={issue.priority} />
+                  <a
+                    href={issue.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1"
+                  >
+                    {issue.title}
+                    <ExternalLink className="w-3 h-3 text-text-secondary" />
+                  </a>
+                </div>
+                <span className="text-xs text-text-secondary shrink-0">
+                  {timeAgo(issue.created_at)}
+                </span>
+              </div>
+              {issue.description && (
+                <p className="text-xs text-text-secondary line-clamp-2 ml-0">
+                  {issue.description}
+                </p>
+              )}
             </div>
           ))}
         </div>
-
-        {issues.length === 0 && !error && (
-          <div className="bg-gg-surface border border-gg-border rounded-xl px-6 py-16 text-center">
-            <div className="flex justify-center mb-4">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                <path
-                  d="M24 4L8 12v10c0 11 6.8 18.4 16 22 9.2-3.6 16-11 16-22V12L24 4z"
-                  fill="rgba(16,185,129,0.15)"
-                  stroke="#10b981"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M20 24l4 4 6-8"
-                  stroke="#10b981"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </div>
-            <p className="text-gg-text text-sm font-medium mb-1">All clear!</p>
-            <p className="text-gg-text-secondary text-sm">
-              No security issues found. Issues are created automatically when GitGuardian detects high/critical vulnerabilities in PR reviews.
-            </p>
-          </div>
-        )}
-
-        {issues.length > 0 && (
-          <div className="bg-gg-surface rounded-xl border border-gg-border">
-            <div className="px-6 py-5 border-b border-gg-border">
-              <h2
-                className="text-lg text-gg-text"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                Security Issues
-              </h2>
-            </div>
-            <div className="divide-y divide-gg-border-subtle">
-              {issues.map((issue) => {
-                const severity = priorityToSeverity(issue.priority);
-                return (
-                  <div key={issue.id} className="px-6 py-5 hover:bg-gg-surface-raised transition-colors duration-150">
-                    <div className="flex items-center gap-2.5 mb-3 flex-wrap">
-                      <SeverityBadge severity={severity} />
-                      <span className="text-sm font-semibold text-gg-text">{issue.title}</span>
-                      <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                        issue.state === "open"
-                          ? "bg-gg-brand-muted text-gg-brand"
-                          : "bg-gg-surface-raised text-gg-text-muted"
-                      }`}>
-                        {issue.state}
-                      </span>
-                      {issue.created_at && (
-                        <span className="ml-auto text-xs text-gg-text-muted">
-                          {timeAgo(issue.created_at)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gg-text-secondary mb-3">{issue.description}</p>
-                    {issue.url && (
-                      <a
-                        href={issue.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-gg-text-link hover:underline"
-                      >
-                        View in Linear →
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

@@ -60,36 +60,24 @@ async function request<T>(
   return res.json();
 }
 
-// ─── Auth (no API key) ──────────────────────────────────────────────────────
-
+// Auth
 export async function signup(username: string, email: string, password: string) {
-  return request<{
-    message: string;
-    username: string;
-    api_key: string;
-  }>("/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ username, email, password }),
-  }, false);
+  return request<{ message: string; username: string; api_key: string }>(
+    "/auth/signup",
+    { method: "POST", body: JSON.stringify({ username, email, password }) },
+    false,
+  );
 }
 
 export async function login(username: string, password: string) {
-  return request<{
-    message: string;
-    username: string;
-    api_key: string;
-  }>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  }, false);
+  return request<{ message: string; username: string; api_key: string }>(
+    "/auth/login",
+    { method: "POST", body: JSON.stringify({ username, password }) },
+    false,
+  );
 }
 
-// ─── Repos ──────────────────────────────────────────────────────────────────
-
-export async function getRepos() {
-  return request<{ repos: string[] }>("/api/repos");
-}
-
+// Repos
 export interface RepoDetail {
   name: string;
   description: string;
@@ -99,12 +87,28 @@ export interface RepoDetail {
   updated_at: string;
 }
 
+export async function getRepos() {
+  return request<{ repos: string[] }>("/api/repos");
+}
+
 export async function getReposDetails() {
   return request<{ repos: RepoDetail[] }>("/api/repos/details");
 }
 
-// ─── Pull Requests ──────────────────────────────────────────────────────────
+export async function addRepo(repo: string) {
+  return request<{ message: string; repo: string }>("/api/repos", {
+    method: "POST",
+    body: JSON.stringify({ repo }),
+  });
+}
 
+export async function removeRepo(owner: string, repo: string) {
+  return request<{ message: string }>(`/api/repos/${owner}/${repo}`, {
+    method: "DELETE",
+  });
+}
+
+// Pull Requests
 export interface PullRequest {
   number: number;
   title: string;
@@ -129,8 +133,7 @@ export async function getRepoPRs(owner: string, repo: string) {
   );
 }
 
-// ─── Security ───────────────────────────────────────────────────────────────
-
+// Security
 export interface SecurityIssue {
   id: string;
   title: string;
@@ -145,8 +148,7 @@ export async function getSecurityIssues() {
   return request<{ count: number; issues: SecurityIssue[] }>("/api/security/issues");
 }
 
-// ─── Chat ───────────────────────────────────────────────────────────────────
-
+// Chat
 export async function chat(message: string, context = "") {
   return request<{ reply: string }>("/api/chat", {
     method: "POST",
@@ -154,8 +156,7 @@ export async function chat(message: string, context = "") {
   });
 }
 
-// ─── Manual Review ──────────────────────────────────────────────────────────
-
+// Manual Review
 export async function triggerReview(repo: string, prNumber: number) {
   return request<{ status: string; approved: boolean }>("/api/review", {
     method: "POST",
@@ -163,8 +164,7 @@ export async function triggerReview(repo: string, prNumber: number) {
   });
 }
 
-// ─── API Keys ───────────────────────────────────────────────────────────────
-
+// API Keys
 export interface ApiKeyInfo {
   prefix: string;
   name: string;
@@ -189,23 +189,7 @@ export async function revokeApiKey(keyPrefix: string) {
   });
 }
 
-// ─── Repo Management ────────────────────────────────────────────────────────
-
-export async function addRepo(repo: string) {
-  return request<{ message: string; repo: string }>("/api/repos", {
-    method: "POST",
-    body: JSON.stringify({ repo }),
-  });
-}
-
-export async function removeRepo(owner: string, repo: string) {
-  return request<{ message: string }>(`/api/repos/${owner}/${repo}`, {
-    method: "DELETE",
-  });
-}
-
-// ─── Health ─────────────────────────────────────────────────────────────────
-
+// Health
 export async function healthCheck() {
   return request<{ status: string }>("/health", {}, false);
 }

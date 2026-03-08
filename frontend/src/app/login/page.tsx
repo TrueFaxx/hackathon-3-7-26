@@ -1,171 +1,111 @@
 "use client";
 
-import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Shield, ArrowRight } from "lucide-react";
 import { login, setApiKey, setStoredUsername } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !password) return;
-    setIsLoading(true);
     setError("");
+    setLoading(true);
     try {
-      const res = await login(email, password);
+      const res = await login(username, password);
       setApiKey(res.api_key);
       setStoredUsername(res.username);
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
-      setIsLoading(false);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-gg-bg relative flex flex-col">
-      <div className="absolute inset-0 dot-grid pointer-events-none" />
-
-      {/* Top-left wordmark */}
-      <div className="relative z-10 px-8 pt-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-gg-text hover:text-gg-brand transition-colors">
-          <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
-            <path d="M20 2L4 11v18l16 9 16-9V11L20 2z" fill="none" stroke="#10b981" strokeWidth="2" />
-            <path d="M14 20l4 4 8-9" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-          <span className="tracking-wide" style={{ fontFamily: "Georgia, serif", fontSize: "16px" }}>
-            GitGuardian
-          </span>
+    <div className="min-h-screen bg-bg flex">
+      {/* Left panel */}
+      <div className="hidden lg:flex lg:w-1/2 bg-accent text-white flex-col justify-between p-12">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+          <Shield className="w-5 h-5 text-primary" strokeWidth={2.5} />
+          GitGuardian
         </Link>
+        <div>
+          <h2 className="text-[clamp(2rem,4vw,3rem)] font-extrabold leading-tight mb-4">
+            Every pull request,
+            <br />
+            reviewed<span className="text-primary">.</span>
+          </h2>
+          <p className="text-white/50 max-w-[360px]">
+            Deep context analysis across your entire codebase. Vulnerabilities caught
+            before they ship.
+          </p>
+        </div>
+        <p className="text-white/30 text-sm">GitGuardian — Autonomous Code Review</p>
       </div>
 
-      {/* Centered content */}
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4">
-        <div className="w-full max-w-[400px] animate-float-in">
-          {/* Shield logo */}
-          <div className="flex justify-center mb-6">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <path
-                d="M28 3L6 14.5v15C6 42.5 15.5 52 28 54c12.5-2 22-11.5 22-24.5v-15L28 3z"
-                fill="rgba(16,185,129,0.15)"
-                stroke="#10b981"
-                strokeWidth="2"
-              />
-              <path
-                d="M20 28l5.5 5.5L36 23"
-                stroke="#10b981"
-                strokeWidth="2.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
+      {/* Right panel */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-[400px]">
+          <Link href="/" className="lg:hidden flex items-center gap-2 font-bold text-lg mb-12">
+            <Shield className="w-5 h-5 text-primary" strokeWidth={2.5} />
+            GitGuardian
+          </Link>
 
-          {/* Heading */}
-          <h1 className="text-center text-gg-text font-semibold mb-1" style={{ fontSize: "24px" }}>
-            Sign in to GitGuardian
-          </h1>
-          <p className="text-center text-gg-text-secondary text-sm mb-5">
-            Welcome back, guardian.
+          <h1 className="text-2xl font-extrabold mb-2">Log in</h1>
+          <p className="text-text-secondary text-sm mb-8">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="text-primary font-medium hover:underline">
+              Sign up
+            </Link>
           </p>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {error && (
-              <p className="text-gg-danger text-sm text-center">{error}</p>
-            )}
-            <input
-              type="text"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Username"
-              className="w-full bg-gg-surface border border-gg-border rounded-lg px-3.5 h-[44px] text-sm text-gg-text placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand/30 transition-colors"
-            />
+          {error && (
+            <div className="bg-danger-light border border-danger/20 text-danger text-sm px-4 py-3 mb-6">
+              {error}
+            </div>
+          )}
 
-            <div className="relative">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Username</label>
               <input
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
+                className="w-full border border-border px-4 py-3 text-sm outline-none focus:border-primary transition-colors bg-bg"
+                placeholder="your-username"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Password</label>
+              <input
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full bg-gg-surface border border-gg-border rounded-lg px-3.5 pr-11 h-[44px] text-sm text-gg-text placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand/30 transition-colors"
+                required
+                className="w-full border border-border px-4 py-3 text-sm outline-none focus:border-primary transition-colors bg-bg"
+                placeholder="••••••••"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gg-text-muted hover:text-gg-text transition-colors"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                )}
-              </button>
             </div>
-
             <button
               type="submit"
-              disabled={isLoading || !email || !password}
-              className="w-full flex items-center justify-center gap-2 bg-gg-btn-primary hover:bg-gg-btn-primary-hover text-white font-semibold text-sm rounded-lg h-[44px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+              className="bg-primary text-white px-6 py-3 text-sm font-semibold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
             >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                  </svg>
-                  Signing in…
-                </>
-              ) : (
-                "Sign in"
-              )}
+              {loading ? "Logging in..." : "Log in"}
+              {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
-
-          {/* Forgot password */}
-          <div className="text-center mt-4">
-            <Link href="/forgot-password" className="text-xs text-gg-text-secondary hover:text-gg-brand transition-colors">
-              Forgot password?
-            </Link>
-          </div>
-
-          {/* Sign up nudge */}
-          <div className="mt-6 border border-gg-border rounded-lg px-4 py-3 text-center text-sm">
-            <span className="text-gg-text-secondary">New to GitGuardian?</span>{" "}
-            <Link href="/signup" className="text-gg-brand hover:underline font-medium">
-              Create an account
-            </Link>
-          </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="relative z-10 py-6 text-center">
-        <span className="text-xs text-gg-text-muted">
-          <Link href="/terms" className="hover:text-gg-text-secondary transition-colors">Terms</Link>
-          <span className="mx-2">·</span>
-          <Link href="/privacy" className="hover:text-gg-text-secondary transition-colors">Privacy</Link>
-        </span>
       </div>
     </div>
   );
