@@ -123,6 +123,19 @@ def accept_pending_invitations() -> list[str]:
     return accepted
 
 
+def get_repo_info(repo_full_name: str) -> dict:
+    """Get repo metadata from GitHub."""
+    repo = _gh().get_repo(repo_full_name)
+    return {
+        "name": repo.full_name,
+        "description": repo.description or "",
+        "language": repo.language or "",
+        "open_prs": repo.get_pulls(state="open").totalCount,
+        "stars": repo.stargazers_count,
+        "updated_at": repo.updated_at.isoformat() if repo.updated_at else "",
+    }
+
+
 def list_open_prs(repo_full_name: str) -> list[dict]:
     repo = _gh().get_repo(repo_full_name)
     prs = repo.get_pulls(state="open", sort="created", direction="desc")

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { clearAuth } from "@/lib/api";
+import { clearAuth, getStoredUsername } from "@/lib/api";
 
 export default function DashboardHeader() {
   const router = useRouter();
+  const username = getStoredUsername() || "User";
+  const initials = username.slice(0, 2).toUpperCase();
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-gg-inset border-b border-gg-border flex items-center px-4 gap-4">
       <Link
@@ -112,8 +114,8 @@ export default function DashboardHeader() {
           </svg>
         </button>
 
-        <div className="w-8 h-8 rounded-full bg-gg-surface-raised border border-gg-border flex items-center justify-center text-xs font-medium text-gg-text-secondary cursor-pointer">
-          JD
+        <div className="w-8 h-8 rounded-full bg-gg-surface-raised border border-gg-border flex items-center justify-center text-xs font-medium text-gg-text-secondary cursor-pointer" title={username}>
+          {initials}
         </div>
 
         <button

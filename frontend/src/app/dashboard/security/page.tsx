@@ -1,89 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { getSecurityIssues, SecurityIssue } from "@/lib/api";
 
-const mockSummaryCards = [
-  { label: "Critical", count: 3, color: "text-gg-danger", bg: "bg-gg-danger-muted", border: "border-gg-danger/20" },
-  { label: "High", count: 7, color: "text-gg-warning", bg: "bg-gg-warning-muted", border: "border-gg-warning/20" },
-  { label: "Medium", count: 12, color: "text-gg-info", bg: "bg-gg-info-muted", border: "border-gg-info/20" },
-];
-
-const mockVulnerabilities = [
-  {
-    severity: "Critical",
-    type: "SQL Injection",
-    file: "src/api/users.ts:42",
-    pr: { id: 142, title: "Fix auth middleware" },
-    description: "User-supplied input passed directly into SQL query without parameterization.",
-    suggestedFix: "Use parameterized queries instead of string interpolation.",
-    status: "Open" as const,
-  },
-  {
-    severity: "Critical",
-    type: "Remote Code Execution",
-    file: "src/utils/template.ts:18",
-    pr: { id: 138, title: "Update template engine" },
-    description: "User input evaluated via eval() in template rendering function.",
-    suggestedFix: "Replace eval() with a safe template engine like Handlebars or use Function constructor with strict sandboxing.",
-    status: "Open" as const,
-  },
-  {
-    severity: "Critical",
-    type: "Hardcoded Secret",
-    file: "src/config/database.ts:5",
-    pr: { id: 140, title: "Update React to v19" },
-    description: "Database password hardcoded in source file instead of using environment variable.",
-    suggestedFix: "Move secret to environment variables and reference via process.env.DB_PASSWORD.",
-    status: "Resolved" as const,
-  },
-  {
-    severity: "High",
-    type: "Cross-Site Scripting (XSS)",
-    file: "src/components/Comment.tsx:31",
-    pr: { id: 141, title: "Add rate limiting" },
-    description: "Rendering user-generated HTML content without sanitization using dangerouslySetInnerHTML.",
-    suggestedFix: "Use DOMPurify or a similar library to sanitize HTML before rendering.",
-    status: "Open" as const,
-  },
-  {
-    severity: "High",
-    type: "Insecure JWT Verification",
-    file: "src/middleware/auth.ts:87",
-    pr: { id: 142, title: "Fix auth middleware" },
-    description: "JWT tokens decoded without signature verification on the refresh endpoint.",
-    suggestedFix: "Use jwt.verify() instead of jwt.decode() to ensure token integrity.",
-    status: "Open" as const,
-  },
-  {
-    severity: "High",
-    type: "Path Traversal",
-    file: "src/api/files.ts:23",
-    pr: { id: 137, title: "Dark mode toggle" },
-    description: "User-supplied filename used to read files without path validation.",
-    suggestedFix: "Validate and sanitize file paths. Use path.resolve() and ensure the result is within the allowed directory.",
-    status: "Dismissed" as const,
-  },
-  {
-    severity: "Medium",
-    type: "Missing Rate Limiting",
-    file: "src/api/auth.ts:15",
-    pr: { id: 141, title: "Add rate limiting" },
-    description: "Login endpoint has no rate limiting, enabling brute force attacks.",
-    suggestedFix: "Add express-rate-limit middleware with appropriate window and max request settings.",
-    status: "Open" as const,
-  },
-  {
-    severity: "Medium",
-    type: "Insecure Cookie Settings",
-    file: "src/middleware/session.ts:8",
-    pr: { id: 139, title: "Bump eslint" },
-    description: "Session cookie missing Secure, HttpOnly, and SameSite attributes.",
-    suggestedFix: "Set cookie options: { secure: true, httpOnly: true, sameSite: 'strict' }.",
-    status: "Resolved" as const,
-  },
-];
+function priorityToSeverity(p: number): string {
+  if (p === 1) return "Critical";
+  if (p === 2) return "High";
+  return "Medium";
+}
 
 function SeverityBadge({ severity }: { severity: string }) {
   const cfg =
@@ -95,62 +19,46 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${cfg}`}>{severity}</span>;
 }
 
-function StatusPill({ status }: { status: "Open" | "Resolved" | "Dismissed" }) {
-  const cfg =
-    status === "Open"
-      ? "bg-gg-brand-muted text-gg-brand"
-      : status === "Resolved"
-        ? "bg-gg-accent-muted text-gg-accent"
-        : "bg-gg-surface-raised text-gg-text-muted";
-  return <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${cfg}`}>{status}</span>;
-}
-
-function priorityToSeverity(p: number): string {
-  if (p === 1) return "Critical";
-  if (p === 2) return "High";
-  return "Medium";
+function timeAgo(iso: string): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 export default function SecurityPage() {
   const [loading, setLoading] = useState(true);
-  const [apiFailed, setApiFailed] = useState(false);
-  const [vulnerabilities, setVulnerabilities] = useState(mockVulnerabilities);
-  const [summaryCards, setSummaryCards] = useState(mockSummaryCards);
+  const [error, setError] = useState("");
+  const [issues, setIssues] = useState<SecurityIssue[]>([]);
 
   useEffect(() => {
     async function fetchSecurity() {
       try {
         const res = await getSecurityIssues();
-        const mapped = res.issues.map((issue: SecurityIssue) => {
-          const severity = priorityToSeverity(issue.priority);
-          return {
-            severity,
-            type: issue.title,
-            file: "",
-            pr: { id: 0, title: "" },
-            description: issue.description,
-            suggestedFix: "",
-            status: (issue.state === "open" ? "Open" : issue.state === "resolved" ? "Resolved" : "Dismissed") as "Open" | "Resolved" | "Dismissed",
-          };
-        });
-        setVulnerabilities(mapped);
-        const critical = res.issues.filter((i: SecurityIssue) => i.priority === 1).length;
-        const high = res.issues.filter((i: SecurityIssue) => i.priority === 2).length;
-        const medium = res.issues.filter((i: SecurityIssue) => i.priority >= 3).length;
-        setSummaryCards([
-          { label: "Critical", count: critical, color: "text-gg-danger", bg: "bg-gg-danger-muted", border: "border-gg-danger/20" },
-          { label: "High", count: high, color: "text-gg-warning", bg: "bg-gg-warning-muted", border: "border-gg-warning/20" },
-          { label: "Medium", count: medium, color: "text-gg-info", bg: "bg-gg-info-muted", border: "border-gg-info/20" },
-        ]);
-        setApiFailed(false);
+        setIssues(res.issues);
       } catch {
-        setApiFailed(true);
+        setError("Could not fetch security issues");
       } finally {
         setLoading(false);
       }
     }
     fetchSecurity();
   }, []);
+
+  const critical = issues.filter((i) => i.priority === 1).length;
+  const high = issues.filter((i) => i.priority === 2).length;
+  const medium = issues.filter((i) => i.priority >= 3).length;
+
+  const summaryCards = [
+    { label: "Critical", count: critical, color: "text-gg-danger", bg: "bg-gg-danger-muted", border: "border-gg-danger/20" },
+    { label: "High", count: high, color: "text-gg-warning", bg: "bg-gg-warning-muted", border: "border-gg-warning/20" },
+    { label: "Medium", count: medium, color: "text-gg-info", bg: "bg-gg-info-muted", border: "border-gg-info/20" },
+  ];
 
   if (loading) {
     return (
@@ -163,16 +71,23 @@ export default function SecurityPage() {
   return (
     <div className="min-h-full bg-gg-bg">
       <div className="max-w-6xl mx-auto px-8 py-8">
-        <h1
-          className="text-[24px] text-gg-text mb-8"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          Security Overview
-        </h1>
+        <div className="flex items-center gap-3 mb-8">
+          <h1
+            className="text-[24px] text-gg-text"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Security Overview
+          </h1>
+          {issues.length > 0 && (
+            <span className="text-sm font-semibold bg-gg-danger-muted text-gg-danger px-2.5 py-0.5 rounded-full">
+              {issues.length}
+            </span>
+          )}
+        </div>
 
-        {apiFailed && (
+        {error && (
           <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
-            Could not connect to backend — showing sample data
+            {error}
           </div>
         )}
 
@@ -188,45 +103,81 @@ export default function SecurityPage() {
           ))}
         </div>
 
-        <div className="bg-gg-surface rounded-xl border border-gg-border hover:border-gg-border-bright transition-all duration-150">
-          <div className="px-6 py-5 border-b border-gg-border">
-            <h2
-              className="text-lg text-gg-text"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Recent Vulnerabilities
-            </h2>
+        {issues.length === 0 && !error && (
+          <div className="bg-gg-surface border border-gg-border rounded-xl px-6 py-16 text-center">
+            <div className="flex justify-center mb-4">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                <path
+                  d="M24 4L8 12v10c0 11 6.8 18.4 16 22 9.2-3.6 16-11 16-22V12L24 4z"
+                  fill="rgba(16,185,129,0.15)"
+                  stroke="#10b981"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M20 24l4 4 6-8"
+                  stroke="#10b981"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </div>
+            <p className="text-gg-text text-sm font-medium mb-1">All clear!</p>
+            <p className="text-gg-text-secondary text-sm">
+              No security issues found. Issues are created automatically when GitGuardian detects high/critical vulnerabilities in PR reviews.
+            </p>
           </div>
-          <div className="divide-y divide-gg-border-subtle">
-            {vulnerabilities.map((vuln, i) => (
-              <div key={i} className="px-6 py-5 hover:bg-gg-surface-raised transition-colors duration-150">
-                <div className="flex items-center gap-2.5 mb-3 flex-wrap">
-                  <SeverityBadge severity={vuln.severity} />
-                  <span className="text-sm font-semibold text-gg-text">{vuln.type}</span>
-                  <StatusPill status={vuln.status} />
-                  <span className="ml-auto text-xs font-mono text-gg-text-muted bg-gg-inset px-2.5 py-1 rounded-md border border-gg-border-subtle">
-                    {vuln.file}
-                  </span>
-                </div>
-                <p className="text-sm text-gg-text-secondary mb-3">{vuln.description}</p>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="bg-gg-brand-subtle border border-gg-brand/10 rounded-lg px-4 py-3 flex-1">
-                    <p className="text-xs text-gg-text-secondary">
-                      <span className="text-gg-brand font-semibold">Fix: </span>
-                      {vuln.suggestedFix}
-                    </p>
+        )}
+
+        {issues.length > 0 && (
+          <div className="bg-gg-surface rounded-xl border border-gg-border">
+            <div className="px-6 py-5 border-b border-gg-border">
+              <h2
+                className="text-lg text-gg-text"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Security Issues
+              </h2>
+            </div>
+            <div className="divide-y divide-gg-border-subtle">
+              {issues.map((issue) => {
+                const severity = priorityToSeverity(issue.priority);
+                return (
+                  <div key={issue.id} className="px-6 py-5 hover:bg-gg-surface-raised transition-colors duration-150">
+                    <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+                      <SeverityBadge severity={severity} />
+                      <span className="text-sm font-semibold text-gg-text">{issue.title}</span>
+                      <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                        issue.state === "open"
+                          ? "bg-gg-brand-muted text-gg-brand"
+                          : "bg-gg-surface-raised text-gg-text-muted"
+                      }`}>
+                        {issue.state}
+                      </span>
+                      {issue.created_at && (
+                        <span className="ml-auto text-xs text-gg-text-muted">
+                          {timeAgo(issue.created_at)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gg-text-secondary mb-3">{issue.description}</p>
+                    {issue.url && (
+                      <a
+                        href={issue.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-gg-text-link hover:underline"
+                      >
+                        View in Linear →
+                      </a>
+                    )}
                   </div>
-                  <Link
-                    href={`/dashboard/pull-requests/${vuln.pr.id}`}
-                    className="text-xs font-medium text-gg-text-link hover:underline whitespace-nowrap shrink-0"
-                  >
-                    PR #{vuln.pr.id}
-                  </Link>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

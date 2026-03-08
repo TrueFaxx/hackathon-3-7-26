@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getRepos } from "@/lib/api";
 
 const navItems = [
   {
@@ -67,14 +69,15 @@ const navItems = [
   },
 ];
 
-const connectedRepos = [
-  { name: "acme/frontend", dotClass: "bg-gg-brand" },
-  { name: "acme/api-server", dotClass: "bg-gg-brand" },
-  { name: "acme/docs", dotClass: "bg-gg-warning" },
-];
-
 export default function Sidebar() {
   const pathname = usePathname();
+  const [connectedRepos, setConnectedRepos] = useState<string[]>([]);
+
+  useEffect(() => {
+    getRepos()
+      .then((res) => setConnectedRepos(res.repos))
+      .catch(() => {});
+  }, []);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -110,14 +113,19 @@ export default function Sidebar() {
           Repositories
         </p>
 
+        {connectedRepos.length === 0 && (
+          <p className="text-xs text-gg-text-muted px-3">No repos connected</p>
+        )}
+
         {connectedRepos.map((repo) => (
-          <div
-            key={repo.name}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-gg-text-secondary hover:bg-gg-btn transition-colors cursor-default"
+          <Link
+            key={repo}
+            href="/dashboard/repositories"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-gg-text-secondary hover:bg-gg-btn transition-colors"
           >
-            <span className={`w-2 h-2 rounded-full shrink-0 ${repo.dotClass}`} />
-            <span className="truncate">{repo.name}</span>
-          </div>
+            <span className="w-2 h-2 rounded-full shrink-0 bg-gg-brand" />
+            <span className="truncate">{repo}</span>
+          </Link>
         ))}
       </nav>
 

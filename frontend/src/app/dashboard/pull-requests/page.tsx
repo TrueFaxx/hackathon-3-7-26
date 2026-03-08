@@ -1,150 +1,54 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { getAllPRs, PullRequest } from "@/lib/api";
 
-const tabs = ["All", "Open", "Merged", "Failed"] as const;
+const tabs = ["All", "Approved", "Reviewing", "Failed"] as const;
 type Tab = (typeof tabs)[number];
-
-const mockPRs = [
-  {
-    id: 142,
-    title: "Fix authentication middleware vulnerability",
-    repo: "acme/backend-api",
-    status: "reviewing" as const,
-    author: "SK",
-    authorName: "Sarah Kim",
-    time: "12 min ago",
-    additions: 142,
-    deletions: 37,
-  },
-  {
-    id: 141,
-    title: "Add rate limiting to public endpoints",
-    repo: "acme/backend-api",
-    status: "approved" as const,
-    author: "JD",
-    authorName: "John Doe",
-    time: "34 min ago",
-    additions: 89,
-    deletions: 12,
-  },
-  {
-    id: 140,
-    title: "Update React to v19 and fix breaking changes",
-    repo: "acme/frontend-app",
-    status: "reviewing" as const,
-    author: "MR",
-    authorName: "Maria Rodriguez",
-    time: "1 hr ago",
-    additions: 456,
-    deletions: 312,
-  },
-  {
-    id: 139,
-    title: "Bump eslint-config from 4.2.0 to 5.0.1",
-    repo: "acme/shared-utils",
-    status: "merged" as const,
-    author: "AB",
-    authorName: "Alex Brown",
-    time: "2 hr ago",
-    additions: 18,
-    deletions: 15,
-  },
-  {
-    id: 138,
-    title: "Fix SQL injection in user search endpoint",
-    repo: "acme/backend-api",
-    status: "failed" as const,
-    author: "SK",
-    authorName: "Sarah Kim",
-    time: "3 hr ago",
-    additions: 34,
-    deletions: 8,
-  },
-  {
-    id: 137,
-    title: "Implement dark mode toggle component",
-    repo: "acme/frontend-app",
-    status: "approved" as const,
-    author: "LW",
-    authorName: "Lisa Wang",
-    time: "4 hr ago",
-    additions: 203,
-    deletions: 45,
-  },
-  {
-    id: 136,
-    title: "Add webhook retry logic with exponential backoff",
-    repo: "acme/webhook-service",
-    status: "reviewing" as const,
-    author: "JD",
-    authorName: "John Doe",
-    time: "5 hr ago",
-    additions: 167,
-    deletions: 23,
-  },
-  {
-    id: 135,
-    title: "Remove deprecated crypto module usage",
-    repo: "acme/shared-utils",
-    status: "merged" as const,
-    author: "MR",
-    authorName: "Maria Rodriguez",
-    time: "6 hr ago",
-    additions: 78,
-    deletions: 134,
-  },
-];
 
 const statusDot: Record<string, string> = {
   approved: "bg-gg-brand",
-  reviewing: "bg-gg-info",
+  reviewing: "bg-gg-warning",
   failed: "bg-gg-danger",
-  merged: "bg-gg-purple",
 };
 
+function guardianToStatus(gs: string | null): "approved" | "reviewing" | "failed" {
+  if (gs === "success") return "approved";
+  if (gs === "failure") return "failed";
+  return "reviewing";
+}
+
 function statusToTab(status: string): Tab {
-  if (status === "approved") return "Open";
-  if (status === "reviewing") return "Open";
-  if (status === "merged") return "Merged";
-  return "Failed";
+  if (status === "approved") return "Approved";
+  if (status === "failed") return "Failed";
+  return "Reviewing";
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 export default function PullRequestsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [apiFailed, setApiFailed] = useState(false);
-  const [prList, setPrList] = useState<typeof mockPRs>(mockPRs);
+  const [error, setError] = useState("");
+  const [prs, setPrs] = useState<PullRequest[]>([]);
 
   useEffect(() => {
     async function fetchPRs() {
       try {
         const res = await getAllPRs();
-        setPrList(
-          res.pull_requests.map((pr: PullRequest, i: number) => ({
-            id: pr.number,
-            title: pr.title,
-            repo: pr.repo || "",
-            status: (pr.guardian_status === "success"
-              ? "approved"
-              : pr.guardian_status === "failure"
-                ? "failed"
-                : pr.guardian_status === "pending"
-                  ? "reviewing"
-                  : "reviewing") as "approved" | "reviewing" | "failed" | "merged",
-            author: pr.author.slice(0, 2).toUpperCase(),
-            authorName: pr.author,
-            time: new Date(pr.created_at).toLocaleDateString(),
-            additions: 0,
-            deletions: 0,
-          }))
-        );
-        setApiFailed(false);
+        setPrs(res.pull_requests);
       } catch {
-        setApiFailed(true);
+        setError("Could not connect to backend");
       } finally {
         setLoading(false);
       }
@@ -152,12 +56,14 @@ export default function PullRequestsPage() {
     fetchPRs();
   }, []);
 
-  const filtered = prList.filter((pr) => {
-    const matchesTab = activeTab === "All" || statusToTab(pr.status) === activeTab;
+  const filtered = prs.filter((pr) => {
+    const status = guardianToStatus(pr.guardian_status);
+    const matchesTab = activeTab === "All" || statusToTab(status) === activeTab;
     const matchesSearch =
       !searchQuery ||
       pr.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pr.repo.toLowerCase().includes(searchQuery.toLowerCase());
+      (pr.repo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pr.author.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -180,7 +86,7 @@ export default function PullRequestsPage() {
             Pull Requests
           </h1>
           <span className="text-sm font-semibold bg-gg-brand-muted text-gg-brand px-2.5 py-0.5 rounded-full">
-            {prList.length}
+            {prs.length}
           </span>
         </div>
 
@@ -222,48 +128,61 @@ export default function PullRequestsPage() {
           </div>
         </div>
 
-        {apiFailed && (
+        {error && (
           <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
-            Could not connect to backend — showing sample data
+            {error}
           </div>
         )}
+
+        {prs.length === 0 && !error && (
+          <div className="bg-gg-surface border border-gg-border rounded-lg px-6 py-16 text-center text-gg-text-muted text-sm">
+            No open pull requests. Connect a repository first.
+          </div>
+        )}
+
         <div className="space-y-3">
-          {filtered.length === 0 && (
+          {filtered.length === 0 && prs.length > 0 && (
             <div className="bg-gg-surface border border-gg-border rounded-lg px-6 py-16 text-center text-gg-text-muted text-sm">
               No pull requests match your filters.
             </div>
           )}
-          {filtered.map((pr) => (
-            <Link
-              key={pr.id}
-              href={`/dashboard/pull-requests/${pr.id}`}
-              className="flex items-center gap-4 bg-gg-surface border border-gg-border rounded-lg p-4 hover:border-gg-border-bright transition-all duration-150 group"
-            >
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot[pr.status]}`} />
+          {filtered.map((pr) => {
+            const status = guardianToStatus(pr.guardian_status);
+            return (
+              <a
+                key={`${pr.repo}-${pr.number}`}
+                href={pr.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 bg-gg-surface border border-gg-border rounded-lg p-4 hover:border-gg-border-bright transition-all duration-150 group"
+              >
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot[status]}`} />
 
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-gg-text group-hover:text-gg-brand transition-colors duration-150 truncate block">
-                  {pr.title}
-                </span>
-                <span className="text-xs text-gg-text-secondary mt-0.5 block">
-                  {pr.repo} · #{pr.id}
-                </span>
-              </div>
-
-              <div className="hidden md:flex items-center gap-5 shrink-0">
-                <div className="w-7 h-7 rounded-full bg-gg-surface-raised flex items-center justify-center text-[10px] font-semibold text-gg-text-secondary">
-                  {pr.author}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gg-text group-hover:text-gg-brand transition-colors duration-150 truncate block">
+                    {pr.title}
+                  </span>
+                  <span className="text-xs text-gg-text-secondary mt-0.5 block">
+                    {pr.repo} · #{pr.number} · {pr.head_branch} → {pr.base_branch}
+                  </span>
                 </div>
 
-                <span className="text-xs text-gg-text-muted w-16 text-right">{pr.time}</span>
+                <div className="hidden md:flex items-center gap-5 shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-gg-surface-raised flex items-center justify-center text-[10px] font-semibold text-gg-text-secondary">
+                    {pr.author.slice(0, 2).toUpperCase()}
+                  </div>
 
-                <div className="flex items-center gap-2 text-xs font-mono">
-                  <span className="text-gg-brand">+{pr.additions}</span>
-                  <span className="text-gg-danger">-{pr.deletions}</span>
+                  <span className="text-xs text-gg-text-muted w-20 text-right">{timeAgo(pr.created_at)}</span>
+
+                  <span className={`text-xs font-medium w-16 text-right ${
+                    status === "approved" ? "text-gg-brand" : status === "failed" ? "text-gg-danger" : "text-gg-warning"
+                  }`}>
+                    {status === "approved" ? "Approved" : status === "failed" ? "Failed" : "Reviewing"}
+                  </span>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </a>
+            );
+          })}
         </div>
       </div>
     </div>

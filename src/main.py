@@ -30,6 +30,7 @@ from .github_client import (
     get_changed_files,
     get_pr_diff,
     get_pr_head_sha,
+    get_repo_info,
     list_open_prs,
     merge_pr,
     post_comment,
@@ -439,6 +440,28 @@ async def api_repos(user: dict = Depends(get_current_user)):
     """List the authenticated user's repos."""
     repos = get_user_repos(user["user_id"])
     return {"repos": repos}
+
+
+@app.get("/api/repos/details")
+async def api_repos_details(user: dict = Depends(get_current_user)):
+    """List repos with full GitHub metadata."""
+    repos = get_user_repos(user["user_id"])
+    details = []
+    for repo_name in repos:
+        try:
+            info = get_repo_info(repo_name)
+            details.append(info)
+        except Exception:
+            logger.exception("Failed to fetch info for %s", repo_name)
+            details.append({
+                "name": repo_name,
+                "description": "",
+                "language": "",
+                "open_prs": 0,
+                "stars": 0,
+                "updated_at": "",
+            })
+    return {"repos": details}
 
 
 class AddRepoRequest(BaseModel):

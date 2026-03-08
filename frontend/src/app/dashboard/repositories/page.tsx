@@ -1,83 +1,47 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { getRepos, addRepo, removeRepo } from "@/lib/api";
+import { getReposDetails, addRepo, removeRepo, RepoDetail } from "@/lib/api";
 
-const mockRepos = [
-  {
-    id: 1,
-    name: "acme/backend-api",
-    description: "Core REST API powering the Acme platform. Node.js + Express + PostgreSQL.",
-    language: "TypeScript",
-    langColor: "#3178c6",
-    prsReviewed: 87,
-    vulnsFound: 12,
-    lastActivity: "12 min ago",
-    status: "Connected" as const,
-  },
-  {
-    id: 2,
-    name: "acme/frontend-app",
-    description: "Customer-facing React application with Next.js App Router.",
-    language: "TypeScript",
-    langColor: "#3178c6",
-    prsReviewed: 64,
-    vulnsFound: 5,
-    lastActivity: "1 hr ago",
-    status: "Connected" as const,
-  },
-  {
-    id: 3,
-    name: "acme/shared-utils",
-    description: "Shared utility libraries, types, and validation schemas.",
-    language: "TypeScript",
-    langColor: "#3178c6",
-    prsReviewed: 31,
-    vulnsFound: 2,
-    lastActivity: "6 hr ago",
-    status: "Paused" as const,
-  },
-  {
-    id: 4,
-    name: "acme/webhook-service",
-    description: "Event-driven webhook delivery service with retry logic.",
-    language: "Go",
-    langColor: "#00ADD8",
-    prsReviewed: 19,
-    vulnsFound: 1,
-    lastActivity: "2 days ago",
-    status: "Connected" as const,
-  },
-];
+const langColors: Record<string, string> = {
+  TypeScript: "#3178c6",
+  JavaScript: "#f1e05a",
+  Python: "#3572a5",
+  Go: "#00ADD8",
+  Rust: "#dea584",
+  Java: "#b07219",
+  Ruby: "#701516",
+  "C++": "#f34b7d",
+  C: "#555555",
+  Shell: "#89e051",
+  HTML: "#e34c26",
+  CSS: "#563d7c",
+};
+
+function timeAgo(iso: string): string {
+  if (!iso) return "-";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 export default function RepositoriesPage() {
   const [loading, setLoading] = useState(true);
   const [apiFailed, setApiFailed] = useState(false);
-  const [repos, setReposData] = useState(mockRepos);
-  const [repoStates, setRepoStates] = useState(
-    mockRepos.map((r) => ({ id: r.id, status: r.status }))
-  );
+  const [repos, setRepos] = useState<RepoDetail[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newRepoName, setNewRepoName] = useState("");
   const [addError, setAddError] = useState("");
 
   async function fetchRepos() {
     try {
-      const res = await getRepos();
-      const mapped = res.repos.map((r: string, i: number) => ({
-        id: i + 1,
-        name: r,
-        description: "",
-        language: "",
-        langColor: "#3178c6",
-        prsReviewed: 0,
-        vulnsFound: 0,
-        lastActivity: "-",
-        status: "Connected" as const,
-      }));
-      setReposData(mapped);
-      setRepoStates(mapped.map((r: { id: number; status: "Connected" | "Paused" }) => ({ id: r.id, status: r.status })));
+      const res = await getReposDetails();
+      setRepos(res.repos);
       setApiFailed(false);
     } catch {
       setApiFailed(true);
@@ -116,14 +80,6 @@ export default function RepositoriesPage() {
     }
   }
 
-  function toggleStatus(id: number) {
-    setRepoStates((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: r.status === "Connected" ? ("Paused" as const) : ("Connected" as const) } : r
-      )
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-full bg-gg-bg flex items-center justify-center">
@@ -137,16 +93,21 @@ export default function RepositoriesPage() {
       <div className="max-w-6xl mx-auto px-8 py-8">
         {apiFailed && (
           <div className="mb-4 px-4 py-2 bg-gg-warning-muted border border-gg-warning/20 rounded-lg text-xs text-gg-warning">
-            Could not connect to backend — showing sample data
+            Could not connect to backend
           </div>
         )}
         <div className="flex items-center justify-between mb-8">
-          <h1
-            className="text-[24px] text-gg-text"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Connected Repositories
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1
+              className="text-[24px] text-gg-text"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Connected Repositories
+            </h1>
+            <span className="text-sm font-semibold bg-gg-brand-muted text-gg-brand px-2.5 py-0.5 rounded-full">
+              {repos.length}
+            </span>
+          </div>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gg-btn-primary hover:bg-gg-btn-primary-hover rounded-lg transition-colors duration-150"
@@ -158,12 +119,24 @@ export default function RepositoriesPage() {
           </button>
         </div>
 
+        {repos.length === 0 && !apiFailed && (
+          <div className="bg-gg-surface border border-gg-border rounded-lg px-6 py-16 text-center">
+            <p className="text-gg-text-secondary text-sm mb-3">No repositories connected yet.</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="text-sm text-gg-brand hover:underline font-medium"
+            >
+              Connect your first repository
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {repos.map((repo) => {
-            const state = repoStates.find((s) => s.id === repo.id)!;
+            const color = langColors[repo.language] || "#8b8b8b";
             return (
               <div
-                key={repo.id}
+                key={repo.name}
                 className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150"
               >
                 <div className="flex items-start justify-between mb-3">
@@ -173,51 +146,45 @@ export default function RepositoriesPage() {
                     </svg>
                     <span className="text-sm font-semibold text-gg-text">{repo.name}</span>
                   </div>
-                  <span
-                    className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                      state.status === "Connected"
-                        ? "bg-gg-brand-muted text-gg-brand"
-                        : "bg-gg-warning-muted text-gg-warning"
-                    }`}
-                  >
-                    {state.status}
+                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-gg-brand-muted text-gg-brand">
+                    Connected
                   </span>
                 </div>
 
-                <p className="text-sm text-gg-text-secondary mb-4">{repo.description}</p>
+                <p className="text-sm text-gg-text-secondary mb-4 line-clamp-2">
+                  {repo.description || "No description"}
+                </p>
 
-                <div className="flex items-center gap-3 mb-5 text-xs text-gg-text-muted">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: repo.langColor }} />
-                    {repo.language}
-                  </span>
-                </div>
+                {repo.language && (
+                  <div className="flex items-center gap-3 mb-5 text-xs text-gg-text-muted">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                      {repo.language}
+                    </span>
+                    <span>{repo.stars} stars</span>
+                  </div>
+                )}
 
-                <div className="grid grid-cols-3 gap-3 mb-5">
+                <div className="grid grid-cols-2 gap-3 mb-5">
                   <div className="bg-gg-inset rounded-lg p-3 text-center border border-gg-border-subtle">
-                    <div className="text-lg font-bold text-gg-text">{repo.prsReviewed}</div>
-                    <div className="text-[11px] text-gg-text-muted">PRs Reviewed</div>
+                    <div className="text-lg font-bold text-gg-text">{repo.open_prs}</div>
+                    <div className="text-[11px] text-gg-text-muted">Open PRs</div>
                   </div>
                   <div className="bg-gg-inset rounded-lg p-3 text-center border border-gg-border-subtle">
-                    <div className="text-lg font-bold text-gg-danger">{repo.vulnsFound}</div>
-                    <div className="text-[11px] text-gg-text-muted">Vulns Found</div>
-                  </div>
-                  <div className="bg-gg-inset rounded-lg p-3 text-center border border-gg-border-subtle">
-                    <div className="text-xs font-medium text-gg-text-secondary mt-1">{repo.lastActivity}</div>
+                    <div className="text-xs font-medium text-gg-text-secondary mt-1">{timeAgo(repo.updated_at)}</div>
                     <div className="text-[11px] text-gg-text-muted mt-0.5">Last Active</div>
                   </div>
                 </div>
 
                 <div className="flex gap-2 border-t border-gg-border pt-4">
-                  <button
-                    onClick={() => toggleStatus(repo.id)}
-                    className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150"
+                  <a
+                    href={`https://github.com/${repo.name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150 text-center"
                   >
-                    {state.status === "Connected" ? "Pause" : "Resume"}
-                  </button>
-                  <button className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-text-secondary hover:bg-gg-btn-hover hover:text-gg-text transition-colors duration-150">
-                    Settings
-                  </button>
+                    View on GitHub
+                  </a>
                   <button
                     onClick={() => handleDisconnect(repo.name)}
                     className="flex-1 text-xs font-medium py-2 rounded-lg bg-gg-btn border border-gg-btn-border text-gg-danger hover:bg-gg-danger-muted transition-colors duration-150"
@@ -241,7 +208,9 @@ export default function RepositoriesPage() {
                 type="text"
                 value={newRepoName}
                 onChange={(e) => setNewRepoName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddRepo()}
                 placeholder="owner/repo"
+                autoFocus
                 className="w-full bg-gg-surface border border-gg-border rounded-lg px-3.5 h-[44px] text-sm text-gg-text placeholder:text-gg-text-muted focus:outline-none focus:border-gg-brand focus:ring-1 focus:ring-gg-brand/30 transition-colors mb-4"
               />
               <div className="flex gap-3 justify-end">

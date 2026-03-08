@@ -90,6 +90,19 @@ export async function getRepos() {
   return request<{ repos: string[] }>("/api/repos");
 }
 
+export interface RepoDetail {
+  name: string;
+  description: string;
+  language: string;
+  open_prs: number;
+  stars: number;
+  updated_at: string;
+}
+
+export async function getReposDetails() {
+  return request<{ repos: RepoDetail[] }>("/api/repos/details");
+}
+
 // ─── Pull Requests ──────────────────────────────────────────────────────────
 
 export interface PullRequest {
