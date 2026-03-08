@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// When Next.js rewrites are active, requests go through the proxy (same origin).
+// Fall back to direct backend URL if NEXT_PUBLIC_API_URL is set explicitly.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 function getApiKey(): string | null {
   if (typeof window === "undefined") return null;
@@ -27,7 +29,7 @@ export function isAuthenticated(): boolean {
   return !!getApiKey();
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
@@ -53,6 +55,12 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (!res.ok) {
+    // Handle expired/revoked API keys — redirect to login
+    if (res.status === 401 && auth && typeof window !== "undefined") {
+      clearAuth();
+      window.location.href = "/login";
+      throw new ApiError("Session expired", 401);
+    }
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new ApiError(body.detail || res.statusText, res.status);
   }

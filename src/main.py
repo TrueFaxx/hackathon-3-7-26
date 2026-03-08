@@ -4,11 +4,8 @@ import hmac
 import logging
 import secrets
 
-from pathlib import Path
-
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 import uvicorn
@@ -409,8 +406,18 @@ async def create_new_key(req: GenerateKeyRequest, user: dict = Depends(get_curre
 
 @app.get("/api/keys")
 async def list_keys(user: dict = Depends(get_current_user)):
-    """List all API keys for the authenticated user (prefixes only)."""
-    keys = list_user_keys(user["user_id"])
+    """List all active API keys for the authenticated user (prefixes only)."""
+    raw_keys = list_user_keys(user["user_id"])
+    # Map key_prefix -> prefix for frontend, filter out revoked keys
+    keys = [
+        {
+            "prefix": k["key_prefix"],
+            "name": k["name"],
+            "created_at": k["created_at"],
+        }
+        for k in raw_keys
+        if not k.get("revoked")
+    ]
     return {"keys": keys}
 
 
@@ -518,7 +525,20 @@ async def api_all_open_prs(user: dict = Depends(get_current_user)):
 @app.get("/api/security/issues")
 async def api_security_issues(user: dict = Depends(get_current_user)):
     """List open security issues from Linear."""
-    issues = await get_security_issues()
+    raw_issues = await get_security_issues()
+    # Map identifier -> id for frontend consistency
+    issues = [
+        {
+            "id": issue.get("identifier", ""),
+            "title": issue.get("title", ""),
+            "description": issue.get("description", ""),
+            "priority": issue.get("priority"),
+            "state": issue.get("state", ""),
+            "url": issue.get("url", ""),
+            "created_at": issue.get("created_at", ""),
+        }
+        for issue in raw_issues
+    ]
     return {"count": len(issues), "issues": issues}
 
 
@@ -561,6 +581,99 @@ class ManualReviewRequest(BaseModel):
     pr_number: int
 
 
+async def _run_review(
+    repo_full_name: str,
+    pr_number: int,
+    pr_title: str,
+    pr_body: str,
+    pr_author: str,
+    head_sha: str,
+    base_ref: str,
+) -> dict:
+    """Run a full review on a PR and post results. Returns status dict."""
+    diff = get_pr_diff(repo_full_name, pr_number)
+    changed_files = get_changed_files(repo_full_name, pr_number)
+
+    tree_paths = get_tree_paths(repo_full_name, head_sha)
+    repo_tree = get_repo_tree(repo_full_name, head_sha)
+    config_files = get_config_files(repo_full_name, head_sha)
+    imported_files = get_imported_files(changed_files, repo_full_name, head_sha, tree_paths)
+    test_files = get_related_test_files(changed_files, repo_full_name, head_sha, tree_paths)
+    base_versions = get_base_file_versions(changed_files, repo_full_name, base_ref)
+    commits = get_pr_commits(repo_full_name, pr_number)
+    pr_comments = get_pr_comments(repo_full_name, pr_number)
+
+    result = await review_pull_request(
+        diff=diff,
+        pr_title=pr_title,
+        pr_body=pr_body,
+        changed_files=changed_files,
+        repo_tree=repo_tree,
+        config_files=config_files,
+        imported_files=imported_files,
+        test_files=test_files,
+        base_versions=base_versions,
+        commits=commits,
+        pr_comments=pr_comments,
+    )
+
+    body_parts = [f"## GitGuardian Review\n\n{result.summary}"]
+    if result.vulnerabilities:
+        body_parts.append("\n### Security Vulnerabilities\n")
+        for v in result.vulnerabilities:
+            line_info = f" (line {v.line})" if v.line else ""
+            body_parts.append(
+                f"- **[{v.severity.value.upper()}]** `{v.file}`{line_info}: "
+                f"{v.description}\n  - Fix: {v.suggestion}"
+            )
+    if result.contradictions:
+        body_parts.append("\n### Contradictions Found\n")
+        for c in result.contradictions:
+            body_parts.append(
+                f"- `{c.file}`: {c.description}\n  - Resolution: {c.resolution}"
+            )
+    if result.comments:
+        body_parts.append("\n### Other Comments\n")
+        for comment in result.comments:
+            body_parts.append(f"- {comment}")
+
+    review_body = "\n".join(body_parts)
+    passed = result.approved and not result.vulnerabilities
+
+    if passed:
+        post_review(repo_full_name, pr_number, review_body, "APPROVE")
+        set_commit_status(repo_full_name, head_sha, "success", "Review passed", settings.status_context)
+        merged = merge_pr(repo_full_name, pr_number)
+        if not merged:
+            post_comment(
+                repo_full_name, pr_number,
+                "PR was approved but could not be auto-merged "
+                "(merge conflicts or branch protection). Please merge manually.",
+            )
+    else:
+        post_review(repo_full_name, pr_number, review_body, "REQUEST_CHANGES")
+        vuln_count = len(result.vulnerabilities)
+        desc = f"Review failed — {vuln_count} issue(s) found" if vuln_count else "Review failed — changes requested"
+        set_commit_status(repo_full_name, head_sha, "failure", desc, settings.status_context)
+
+    high_vulns = [v for v in result.vulnerabilities if v.severity in (Severity.HIGH, Severity.CRITICAL)]
+    for vuln in high_vulns:
+        await create_security_issue(
+            title=f"[Security] {vuln.severity.value.upper()}: {vuln.description[:80]}",
+            description=(
+                f"**Repository:** {repo_full_name}\n"
+                f"**PR:** #{pr_number} — {pr_title}\n"
+                f"**Author:** @{pr_author}\n"
+                f"**File:** `{vuln.file}`{f' (line {vuln.line})' if vuln.line else ''}\n\n"
+                f"**Vulnerability:** {vuln.description}\n\n"
+                f"**Suggested fix:** {vuln.suggestion}"
+            ),
+            priority=1 if vuln.severity == Severity.CRITICAL else 2,
+        )
+
+    return {"status": "reviewed", "approved": result.approved}
+
+
 @app.post("/api/review")
 async def api_trigger_review(req: ManualReviewRequest, user: dict = Depends(get_current_user)):
     """Manually trigger a review for a specific PR (must be in user's repos)."""
@@ -590,12 +703,9 @@ async def api_trigger_review(req: ManualReviewRequest, user: dict = Depends(get_
         raise HTTPException(status_code=500, detail="Review failed")
 
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-
-
 @app.get("/")
-async def serve_frontend():
-    return FileResponse(FRONTEND_DIR / "index.html")
+async def root():
+    return {"status": "ok", "app": "GitGuardian", "docs": "/docs"}
 
 
 def main():
