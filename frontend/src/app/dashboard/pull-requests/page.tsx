@@ -7,7 +7,7 @@ const tabs = ["All", "Approved", "Reviewing", "Failed"] as const;
 type Tab = (typeof tabs)[number];
 
 const statusDot: Record<string, string> = {
-  approved: "bg-gg-brand",
+  approved: "bg-gg-success",
   reviewing: "bg-gg-warning",
   failed: "bg-gg-danger",
 };
@@ -175,7 +175,7 @@ export default function PullRequestsPage() {
                   <span className="text-xs text-gg-text-muted w-20 text-right">{timeAgo(pr.created_at)}</span>
 
                   <span className={`text-xs font-medium w-16 text-right ${
-                    status === "approved" ? "text-gg-brand" : status === "failed" ? "text-gg-danger" : "text-gg-warning"
+                    status === "approved" ? "text-gg-success" : status === "failed" ? "text-gg-danger" : "text-gg-warning"
                   }`}>
                     {status === "approved" ? "Approved" : status === "failed" ? "Failed" : "Reviewing"}
                   </span>

@@ -137,7 +137,7 @@ export default function RepositoriesPage() {
             return (
               <div
                 key={repo.name}
-                className="bg-gg-surface rounded-xl border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150"
+                className="bg-gg-surface rounded-md border border-gg-border p-6 hover:border-gg-border-bright transition-all duration-150"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2.5">
@@ -146,7 +146,7 @@ export default function RepositoriesPage() {
                     </svg>
                     <span className="text-sm font-semibold text-gg-text">{repo.name}</span>
                   </div>
-                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-gg-brand-muted text-gg-brand">
+                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-gg-success-muted text-gg-success">
                     Connected
                   </span>
                 </div>
@@ -199,7 +199,7 @@ export default function RepositoriesPage() {
 
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-gg-surface border border-gg-border rounded-xl p-6 w-full max-w-md">
+            <div className="bg-gg-surface border border-gg-border rounded-md p-6 w-full max-w-md">
               <h2 className="text-lg font-semibold text-gg-text mb-4">Connect Repository</h2>
               {addError && (
                 <p className="text-gg-danger text-sm mb-3">{addError}</p>

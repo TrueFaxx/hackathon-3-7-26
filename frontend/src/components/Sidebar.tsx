@@ -123,38 +123,12 @@ export default function Sidebar() {
             href="/dashboard/repositories"
             className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-gg-text-secondary hover:bg-gg-btn transition-colors"
           >
-            <span className="w-2 h-2 rounded-full shrink-0 bg-gg-brand" />
+            <span className="w-2 h-2 rounded-full shrink-0 bg-gg-success" />
             <span className="truncate">{repo}</span>
           </Link>
         ))}
       </nav>
 
-      <div className="bg-gg-surface-raised border border-gg-border rounded-lg p-3 mx-2 mb-2">
-        <div className="flex items-center gap-2">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            className="text-gg-brand shrink-0"
-          >
-            <path
-              d="M12 2l2.09 6.26L20.18 9l-5.09 3.74L16.18 19 12 15.27 7.82 19l1.09-6.26L3.82 9l6.09-.74L12 2z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className="text-gg-brand text-xs font-medium">Pro Plan</span>
-        </div>
-        <p className="text-gg-text-muted text-xs mt-1">
-          Unlock unlimited reviews
-        </p>
-        <button className="text-gg-brand text-xs font-medium hover:underline mt-1.5">
-          Upgrade
-        </button>
-      </div>
     </aside>
   );
 }
