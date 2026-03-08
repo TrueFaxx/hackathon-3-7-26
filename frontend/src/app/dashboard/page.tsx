@@ -96,14 +96,7 @@ export default function DashboardPage() {
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-start gap-4">
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-semibold text-gg-text">GitGuardian</h1>
-                {lastUpdated && (
-                  <span className="text-[11px] text-gg-text-muted" title={lastUpdated.toLocaleTimeString()}>
-                    Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </span>
-                )}
-              </div>
+              <h1 className="text-xl font-semibold text-gg-text">GitGuardian</h1>
               <p className="text-gg-text-secondary text-sm mt-0.5">
                 AI-powered code review
               </p>
