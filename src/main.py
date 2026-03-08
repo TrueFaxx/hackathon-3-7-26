@@ -132,48 +132,16 @@ def verify_signature(payload: bytes, signature: str) -> bool:
     return hmac.compare_digest(f"sha256={expected}", signature)
 
 
-@app.post("/webhook")
-async def handle_webhook(
-    request: Request,
-    x_hub_signature_256: str = Header(None),
-    x_github_event: str = Header(None),
-):
-    payload = await request.body()
-
-    if x_hub_signature_256 and not verify_signature(payload, x_hub_signature_256):
-        raise HTTPException(status_code=401, detail="Invalid signature")
-
-    if x_github_event == "issue_comment":
-        return await _handle_override_comment(await request.json())
-
-    if x_github_event != "pull_request":
-        return {"status": "ignored", "event": x_github_event}
-
-    data = await request.json()
-    action = data.get("action")
-    if action not in ("opened", "synchronize", "reopened"):
-        return {"status": "ignored", "action": action}
-
-    pr = data["pull_request"]
-    repo_full_name = data["repository"]["full_name"]
-    pr_number = pr["number"]
-    pr_title = pr["title"]
-    pr_body = pr.get("body", "")
-    pr_author = pr["user"]["login"]
-    head_sha = pr["head"]["sha"]
-    base_ref = pr["base"]["ref"]
-
-    logger.info("Reviewing PR %s#%d: %s", repo_full_name, pr_number, pr_title)
-
-    # Set pending status while review is in progress
-    set_commit_status(
-        repo_full_name,
-        head_sha,
-        "pending",
-        "Review in progress...",
-        settings.status_context,
-    )
-
+async def _run_review(
+    repo_full_name: str,
+    pr_number: int,
+    pr_title: str,
+    pr_body: str,
+    pr_author: str,
+    head_sha: str,
+    base_ref: str,
+) -> dict:
+    """Run the full review pipeline: gather context, call Claude, post results."""
     # Fetch core PR data
     diff = get_pr_diff(repo_full_name, pr_number)
     changed_files = get_changed_files(repo_full_name, pr_number)
@@ -295,6 +263,65 @@ async def handle_webhook(
         )
 
     return {"status": "reviewed", "approved": result.approved}
+
+
+@app.post("/webhook")
+async def handle_webhook(
+    request: Request,
+    x_hub_signature_256: str = Header(None),
+    x_github_event: str = Header(None),
+):
+    payload = await request.body()
+
+    if x_hub_signature_256 and not verify_signature(payload, x_hub_signature_256):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    if x_github_event == "issue_comment":
+        return await _handle_override_comment(await request.json())
+
+    if x_github_event != "pull_request":
+        return {"status": "ignored", "event": x_github_event}
+
+    data = await request.json()
+    action = data.get("action")
+    if action not in ("opened", "synchronize", "reopened"):
+        return {"status": "ignored", "action": action}
+
+    pr = data["pull_request"]
+    repo_full_name = data["repository"]["full_name"]
+    pr_number = pr["number"]
+    pr_title = pr["title"]
+    pr_body = pr.get("body", "")
+    pr_author = pr["user"]["login"]
+    head_sha = pr["head"]["sha"]
+    base_ref = pr["base"]["ref"]
+
+    logger.info("Reviewing PR %s#%d: %s", repo_full_name, pr_number, pr_title)
+
+    # Set pending status while review is in progress
+    set_commit_status(
+        repo_full_name,
+        head_sha,
+        "pending",
+        "Review in progress...",
+        settings.status_context,
+    )
+
+    try:
+        result = await _run_review(
+            repo_full_name, pr_number, pr_title, pr_body, pr_author, head_sha, base_ref
+        )
+        return result
+    except Exception:
+        logger.exception("Review failed for %s#%d", repo_full_name, pr_number)
+        set_commit_status(
+            repo_full_name,
+            head_sha,
+            "error",
+            "Review encountered an error",
+            settings.status_context,
+        )
+        return {"status": "error", "approved": False}
 
 
 async def _handle_override_comment(data: dict) -> dict:

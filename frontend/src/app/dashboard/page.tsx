@@ -29,6 +29,7 @@ function timeAgo(iso: string): string {
 function guardianLabel(status: string | null): { text: string; color: string; bg: string } {
   if (status === "success") return { text: "Approved", color: "text-success", bg: "bg-success-light" };
   if (status === "failure") return { text: "Failed", color: "text-danger", bg: "bg-danger-light" };
+  if (status === "error") return { text: "Error", color: "text-danger", bg: "bg-danger-light" };
   if (status === "pending") return { text: "Reviewing", color: "text-warning", bg: "bg-warning-light" };
   return { text: "Pending", color: "text-text-muted", bg: "bg-surface-raised" };
 }

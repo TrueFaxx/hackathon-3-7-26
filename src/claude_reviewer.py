@@ -169,5 +169,22 @@ async def review_pull_request(
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
 
-    data = json.loads(raw)
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.error("Claude returned invalid JSON, attempting to extract JSON block")
+        # Try to find JSON object in the response
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        if start != -1 and end > start:
+            data = json.loads(raw[start:end])
+        else:
+            logger.error("Could not extract JSON from Claude response: %s", raw[:500])
+            return ReviewResult(
+                approved=False,
+                summary="Review failed: could not parse Claude response.",
+                vulnerabilities=[],
+                contradictions=[],
+                comments=["Automated review encountered a parsing error. Please re-trigger the review."],
+            )
     return ReviewResult(**data)

@@ -8,9 +8,10 @@ const POLL_INTERVAL = 15_000;
 const tabs = ["All", "Approved", "Reviewing", "Failed"] as const;
 type Tab = (typeof tabs)[number];
 
-function guardianToStatus(gs: string | null): "approved" | "reviewing" | "failed" {
+function guardianToStatus(gs: string | null): "approved" | "reviewing" | "failed" | "error" {
   if (gs === "success") return "approved";
   if (gs === "failure") return "failed";
+  if (gs === "error") return "error";
   return "reviewing";
 }
 
@@ -35,6 +36,7 @@ const statusStyles: Record<string, { color: string; bg: string }> = {
   approved: { color: "text-success", bg: "bg-success-light" },
   reviewing: { color: "text-warning", bg: "bg-warning-light" },
   failed: { color: "text-danger", bg: "bg-danger-light" },
+  error: { color: "text-danger", bg: "bg-danger-light" },
 };
 
 export default function PullRequestsPage() {
@@ -147,7 +149,7 @@ export default function PullRequestsPage() {
               rel="noopener noreferrer"
               className="flex items-center gap-4 bg-surface border border-border p-5 hover:border-border-strong transition-colors group"
             >
-              <span className={`w-2 h-2 shrink-0 ${style.color === "text-success" ? "bg-success" : style.color === "text-danger" ? "bg-danger" : "bg-warning"}`} />
+              <span className={`w-2 h-2 shrink-0 ${style.color === "text-success" ? "bg-success" : style.color === "text-danger" ? "bg-danger" : style.color === "text-warning" ? "bg-warning" : "bg-danger"}`} />
 
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-bold text-text group-hover:text-primary transition-colors truncate block">
@@ -166,7 +168,7 @@ export default function PullRequestsPage() {
                 <span className="text-xs text-text-muted w-20 text-right">{timeAgo(pr.created_at)}</span>
 
                 <span className={`text-[10px] font-bold px-2 py-0.5 uppercase ${style.bg} ${style.color} w-20 text-center`}>
-                  {status === "approved" ? "Approved" : status === "failed" ? "Failed" : "Reviewing"}
+                  {status === "approved" ? "Approved" : status === "failed" ? "Failed" : status === "error" ? "Error" : "Reviewing"}
                 </span>
               </div>
             </a>
